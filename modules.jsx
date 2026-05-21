@@ -209,7 +209,6 @@ const computeStreak = (days) => {
 };
 
 function HabitsModule() {
-  // Seed with a few completed days for visual interest
   const seed = (offsets) => {
     const d = {};
     const now = new Date();
@@ -221,35 +220,102 @@ function HabitsModule() {
   };
 
   const [habits, setHabits] = useLocalState('dash.habits.v1', [
-    { id: 'h1', name: 'Move 30 min',   glyph: '🏃', days: seed([1, 2, 3, 4, 6]) },
-    { id: 'h2', name: 'Read 20 pages', glyph: '📖', days: seed([1, 2, 4, 5, 6, 7]) },
+    { id: 'h1', name: 'Move 30 min',      glyph: '🏃', days: seed([1, 2, 3, 4, 6]) },
+    { id: 'h2', name: 'Read 20 pages',    glyph: '📖', days: seed([1, 2, 4, 5, 6, 7]) },
     { id: 'h3', name: 'Hydrate (8 cups)', glyph: '💧', days: seed([1, 2, 3, 5, 6]) },
-    { id: 'h4', name: 'Meditate 10 min', glyph: '✿', days: seed([2, 3, 5]) },
+    { id: 'h4', name: 'Meditate 10 min',  glyph: '✿',  days: seed([2, 3, 5]) },
   ]);
+
+  const [editing, setEditing] = useState(null); // habit id being edited
+  const [draft, setDraft] = useState({ name: '', glyph: '' });
+  const [adding, setAdding] = useState(false);
+  const [newDraft, setNewDraft] = useState({ name: '', glyph: '' });
 
   const week = weekDates();
   const todayI = todayISO();
 
-  const toggleDay = (hid, iso) => {
+  const toggleDay = (hid, iso) =>
     setHabits(habits.map(h => h.id === hid ? { ...h, days: { ...h.days, [iso]: !h.days[iso] } } : h));
+
+  const startEdit = (h) => { setEditing(h.id); setDraft({ name: h.name, glyph: h.glyph }); };
+  const saveEdit = (id) => {
+    if (!draft.name.trim()) return;
+    setHabits(habits.map(h => h.id === id ? { ...h, name: draft.name.trim(), glyph: draft.glyph.trim() || h.glyph } : h));
+    setEditing(null);
+  };
+  const deleteHabit = (id) => setHabits(habits.filter(h => h.id !== id));
+
+  const addHabit = (e) => {
+    e?.preventDefault?.();
+    if (!newDraft.name.trim()) return;
+    setHabits([...habits, { id: 'h' + Date.now(), name: newDraft.name.trim(), glyph: newDraft.glyph.trim() || '⭐', days: {} }]);
+    setNewDraft({ name: '', glyph: '' });
+    setAdding(false);
   };
 
   return (
-    <Card cls="m-habits" title="Habits" count="This week">
+    <Card
+      cls="m-habits"
+      title="Habits"
+      count="This week"
+      action={
+        <button
+          className="btn btn--ghost"
+          style={{ fontSize: 11, padding: '4px 10px' }}
+          onClick={() => setAdding(a => !a)}
+        >
+          {adding ? 'Cancel' : '+ Add'}
+        </button>
+      }
+    >
       <div className="habits">
         {habits.map(h => {
           const streak = computeStreak(h.days);
+          const isEditing = editing === h.id;
           return (
             <div key={h.id} className="habit">
               <div className="habit__head">
-                <div className="habit__name">
-                  <span className="glyph">{h.glyph}</span>
-                  {h.name}
-                </div>
-                <div className="habit__streak">
-                  <Icon name="flame" />
-                  {streak}d
-                </div>
+                {isEditing ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
+                    <input
+                      value={draft.glyph}
+                      onChange={e => setDraft(d => ({ ...d, glyph: e.target.value }))}
+                      style={{ width: 32, border: '1px solid var(--border-default)', borderRadius: 6, padding: '2px 4px', fontSize: 13, textAlign: 'center', background: 'var(--ssm-paper)' }}
+                      placeholder="🏃"
+                    />
+                    <input
+                      autoFocus
+                      value={draft.name}
+                      onChange={e => setDraft(d => ({ ...d, name: e.target.value }))}
+                      onKeyDown={e => { if (e.key === 'Enter') saveEdit(h.id); if (e.key === 'Escape') setEditing(null); }}
+                      style={{ flex: 1, border: '1px solid var(--ssm-eminence)', borderRadius: 6, padding: '3px 8px', fontSize: 12.5, fontWeight: 600, background: 'var(--ssm-paper)' }}
+                    />
+                    <button
+                      onClick={() => saveEdit(h.id)}
+                      style={{ fontSize: 11, fontWeight: 700, color: 'var(--ssm-eminence)', padding: '3px 8px', background: 'var(--ssm-eminence-tint)', borderRadius: 6 }}
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => deleteHabit(h.id)}
+                      style={{ fontSize: 11, fontWeight: 700, color: 'var(--fg-error)', padding: '3px 8px', background: 'rgba(179,58,58,0.08)', borderRadius: 6 }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ) : (
+                  <div className="habit__name" style={{ cursor: 'pointer' }} onClick={() => startEdit(h)} title="Click to edit">
+                    <span className="glyph">{h.glyph}</span>
+                    {h.name}
+                    <Icon name="write" style={{ width: 11, height: 11, opacity: 0, marginLeft: 2 }} className="habit__edit-icon" />
+                  </div>
+                )}
+                {!isEditing && (
+                  <div className="habit__streak">
+                    <Icon name="flame" />
+                    {streak}d
+                  </div>
+                )}
               </div>
               <div className="streak-row">
                 {week.map((iso, i) => {
@@ -272,6 +338,25 @@ function HabitsModule() {
           );
         })}
       </div>
+
+      {adding && (
+        <form className="task-input" onSubmit={addHabit} style={{ marginTop: 4 }}>
+          <input
+            value={newDraft.glyph}
+            onChange={e => setNewDraft(d => ({ ...d, glyph: e.target.value }))}
+            placeholder="🌟"
+            style={{ width: 32, border: 'none', background: 'transparent', fontSize: 14, textAlign: 'center', outline: 'none', flexShrink: 0 }}
+          />
+          <input
+            autoFocus
+            value={newDraft.name}
+            onChange={e => setNewDraft(d => ({ ...d, name: e.target.value }))}
+            placeholder="New habit name…"
+            style={{ flex: 1, border: 'none', background: 'transparent', fontSize: 13, outline: 'none' }}
+          />
+          <button type="submit" className="submit">Add</button>
+        </form>
+      )}
     </Card>
   );
 }
