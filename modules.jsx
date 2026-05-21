@@ -446,33 +446,139 @@ function GoalsModule() {
     { id: 'g4', title: 'Write therapy reflection weekly', progress: 25, deadline: 'Ongoing', unit: '3 / 12 weeks' },
   ]);
 
-  const nudge = (id, dir) => {
-    setGoals(goals.map(g => g.id === id ? { ...g, progress: Math.max(0, Math.min(100, g.progress + dir * 5)) } : g));
+  const [editing, setEditing] = useState(null);
+  const [draft, setDraft] = useState({ title: '', deadline: '', unit: '' });
+  const [adding, setAdding] = useState(false);
+  const [newDraft, setNewDraft] = useState({ title: '', deadline: '', unit: '' });
+
+  const startEdit = (g) => { setEditing(g.id); setDraft({ title: g.title, deadline: g.deadline, unit: g.unit }); };
+  const saveEdit = (id) => {
+    if (!draft.title.trim()) return;
+    setGoals(goals.map(g => g.id === id ? { ...g, ...draft, title: draft.title.trim() } : g));
+    setEditing(null);
+  };
+  const deleteGoal = (id) => setGoals(goals.filter(g => g.id !== id));
+
+  const addGoal = (e) => {
+    e?.preventDefault?.();
+    if (!newDraft.title.trim()) return;
+    setGoals([...goals, { id: 'g' + Date.now(), title: newDraft.title.trim(), progress: 0, deadline: newDraft.deadline.trim() || 'Ongoing', unit: newDraft.unit.trim() || '' }]);
+    setNewDraft({ title: '', deadline: '', unit: '' });
+    setAdding(false);
   };
 
   return (
-    <Card cls="m-goals" title="Goals" count={`${goals.length} active`}>
+    <Card
+      cls="m-goals"
+      title="Goals"
+      count={`${goals.length} active`}
+      action={
+        <button
+          className="btn btn--ghost"
+          style={{ fontSize: 11, padding: '4px 10px' }}
+          onClick={() => setAdding(a => !a)}
+        >
+          {adding ? 'Cancel' : '+ Add'}
+        </button>
+      }
+    >
       <div className="goals">
-        {goals.map(g => (
-          <div key={g.id} className="goal">
-            <div className="goal__head">
-              <div className="goal__title">{g.title}</div>
-              <div className="goal__pct">{g.progress}%</div>
+        {goals.map(g => {
+          const isEditing = editing === g.id;
+          return (
+            <div key={g.id} className="goal">
+              {isEditing ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <input
+                    autoFocus
+                    value={draft.title}
+                    onChange={e => setDraft(d => ({ ...d, title: e.target.value }))}
+                    onKeyDown={e => { if (e.key === 'Enter') saveEdit(g.id); if (e.key === 'Escape') setEditing(null); }}
+                    placeholder="Goal title…"
+                    style={{ border: '1.5px solid var(--ssm-eminence)', borderRadius: 8, padding: '6px 10px', fontSize: 13, fontWeight: 600, outline: 'none', width: '100%', background: 'var(--ssm-paper)' }}
+                  />
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input
+                      value={draft.unit}
+                      onChange={e => setDraft(d => ({ ...d, unit: e.target.value }))}
+                      placeholder="Progress label (e.g. Ch. 6 of 9)"
+                      style={{ flex: 1, border: '1px solid var(--border-default)', borderRadius: 8, padding: '5px 10px', fontSize: 12, outline: 'none', background: 'var(--ssm-paper)' }}
+                    />
+                    <input
+                      value={draft.deadline}
+                      onChange={e => setDraft(d => ({ ...d, deadline: e.target.value }))}
+                      placeholder="Due date"
+                      style={{ width: 110, border: '1px solid var(--border-default)', borderRadius: 8, padding: '5px 10px', fontSize: 12, outline: 'none', background: 'var(--ssm-paper)' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => saveEdit(g.id)} className="btn btn--primary" style={{ fontSize: 11, padding: '5px 14px' }}>Save</button>
+                    <button onClick={() => setEditing(null)} className="btn btn--ghost" style={{ fontSize: 11, padding: '5px 10px' }}>Cancel</button>
+                    <button onClick={() => deleteGoal(g.id)} style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, color: 'var(--fg-error)', padding: '5px 10px', background: 'rgba(179,58,58,0.08)', borderRadius: 8 }}>Delete</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="goal__head">
+                    <div className="goal__title" style={{ cursor: 'pointer' }} onClick={() => startEdit(g)} title="Click to edit">
+                      {g.title}
+                      <Icon name="write" style={{ width: 11, height: 11, opacity: 0, marginLeft: 6, verticalAlign: 'middle' }} className="goal__edit-icon" />
+                    </div>
+                    <div className="goal__pct">{g.progress}%</div>
+                  </div>
+                  <div
+                    className="goal__bar"
+                    onClick={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const pct = Math.round(((e.clientX - rect.left) / rect.width) * 100);
+                      setGoals(goals.map(x => x.id === g.id ? { ...x, progress: pct } : x));
+                    }}
+                    style={{ cursor: 'pointer' }}
+                    title="Click to set progress"
+                  >
+                    <div className="goal__fill" style={{ width: `${g.progress}%` }} />
+                  </div>
+                  <div className="goal__meta">
+                    <span>{g.unit}</span>
+                    <span className="goal__due"><Icon name="cal" style={{ width: 11, height: 11 }} /> Due {g.deadline}</span>
+                  </div>
+                </>
+              )}
             </div>
-            <div className="goal__bar" onClick={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              const pct = Math.round(((e.clientX - rect.left) / rect.width) * 100);
-              setGoals(goals.map(x => x.id === g.id ? { ...x, progress: pct } : x));
-            }} style={{ cursor: 'pointer' }} title="Click to set progress">
-              <div className="goal__fill" style={{ width: `${g.progress}%` }} />
-            </div>
-            <div className="goal__meta">
-              <span>{g.unit}</span>
-              <span className="goal__due"><Icon name="cal" style={{ width: 11, height: 11 }} /> Due {g.deadline}</span>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
+
+      {adding && (
+        <form onSubmit={addGoal} style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 14px', background: 'var(--ssm-eminence-tint)', borderRadius: 12, marginTop: 4 }}>
+          <p style={{ margin: 0, fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ssm-orange)' }}>New goal</p>
+          <input
+            autoFocus
+            value={newDraft.title}
+            onChange={e => setNewDraft(d => ({ ...d, title: e.target.value }))}
+            placeholder="What do you want to accomplish?"
+            style={{ border: '1.5px solid var(--ssm-eminence)', borderRadius: 8, padding: '7px 10px', fontSize: 13, fontWeight: 600, outline: 'none', background: 'white' }}
+          />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              value={newDraft.unit}
+              onChange={e => setNewDraft(d => ({ ...d, unit: e.target.value }))}
+              placeholder="Progress label (optional)"
+              style={{ flex: 1, border: '1px solid var(--border-default)', borderRadius: 8, padding: '6px 10px', fontSize: 12, outline: 'none', background: 'white' }}
+            />
+            <input
+              value={newDraft.deadline}
+              onChange={e => setNewDraft(d => ({ ...d, deadline: e.target.value }))}
+              placeholder="Due date"
+              style={{ width: 110, border: '1px solid var(--border-default)', borderRadius: 8, padding: '6px 10px', fontSize: 12, outline: 'none', background: 'white' }}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="submit" className="btn btn--primary" style={{ fontSize: 11, padding: '6px 16px' }}>Add goal</button>
+            <button type="button" className="btn btn--ghost" style={{ fontSize: 11 }} onClick={() => setAdding(false)}>Cancel</button>
+          </div>
+        </form>
+      )}
     </Card>
   );
 }

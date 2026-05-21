@@ -498,6 +498,7 @@ input, textarea {
 }
 .habit:hover { background: rgba(111, 63, 142, 0.04); }
 .habit__name:hover .habit__edit-icon { opacity: 0.5 !important; }
+.goal__title:hover .goal__edit-icon { opacity: 0.5 !important; }
 .habit:last-child { padding-bottom: 6px; }
 .habit__head { display: contents; }
 .habit__name { grid-column: 1; }
