@@ -250,7 +250,7 @@ function Dashboard() {
           <span>
             Built on the SSM design system <span className="dot"></span>
             All data stored locally in your browser <span className="dot"></span>
-            <a href="https://github.com" target="_blank" rel="noopener" style={{ color: 'var(--fg-muted)' }}>View on GitHub</a>
+            <a href="https://github.com/startsayingmore/daybook" target="_blank" rel="noopener" style={{ color: 'var(--fg-muted)' }}>View on GitHub</a>
           </span>
         </footer>
       </main>
