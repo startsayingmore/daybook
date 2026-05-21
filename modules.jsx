@@ -288,42 +288,64 @@ const fmtTime = (mins) => {
 };
 
 function ScheduleModule({ nowMinutes }) {
-  const [events, setEvents] = useLocalState('dash.events.v1', [
-    { id: 'e1', start: 9 * 60,         dur: 60,  title: 'Morning planning',   sub: 'Solo · Inbox zero' },
-    { id: 'e2', start: 10 * 60 + 30,   dur: 50,  title: 'Therapist sync',     sub: 'Zoom · Dr. Adeola' },
-    { id: 'e3', start: 12 * 60 + 30,   dur: 60,  title: 'Lunch with Toni',    sub: 'Soko Kitchen · 6th Ave' },
-    { id: 'e4', start: 14 * 60,        dur: 90,  title: 'Design review · v2', sub: 'Studio · with Jordan, Reni' },
-    { id: 'e5', start: 16 * 60 + 30,   dur: 30,  title: 'Walk + podcast',     sub: 'Highline' },
-    { id: 'e6', start: 19 * 60,        dur: 45,  title: 'Journal & wind-down', sub: 'Home' },
+  const [manualEvents] = useLocalState('dash.events.v1', [
+    { id: 'e1', start: 9 * 60,       dur: 60,  title: 'Morning planning',    sub: 'Solo · Inbox zero' },
+    { id: 'e2', start: 10 * 60 + 30, dur: 50,  title: 'Therapist sync',      sub: 'Zoom · Dr. Adeola' },
+    { id: 'e3', start: 12 * 60 + 30, dur: 60,  title: 'Lunch with Toni',     sub: 'Soko Kitchen · 6th Ave' },
+    { id: 'e4', start: 14 * 60,      dur: 90,  title: 'Design review · v2',  sub: 'Studio · with Jordan, Reni' },
+    { id: 'e5', start: 16 * 60 + 30, dur: 30,  title: 'Walk + podcast',      sub: 'Highline' },
+    { id: 'e6', start: 19 * 60,      dur: 45,  title: 'Journal & wind-down', sub: 'Home' },
   ]);
+
+  // Use real Google Calendar events when connected, fall back to manual events
+  const cal = useCalendar();
+  const events = (cal.status === 'ready' && cal.events) ? cal.events : manualEvents;
+  const isEmpty = events.length === 0;
 
   return (
     <Card cls="m-today" title="Today" count={new Date().toLocaleDateString('en-US', { weekday: 'long' })}>
-      <div className="schedule">
-        {events.map(e => {
-          const end = e.start + e.dur;
-          const isNow = nowMinutes >= e.start && nowMinutes < end;
-          const isPast = nowMinutes >= end;
-          const { time, ampm } = fmtTime(e.start);
-          return (
-            <div key={e.id} className={`event ${isNow ? 'is-now' : ''} ${isPast ? 'is-past' : ''}`}>
-              <div className="event__time">
-                {time}<span className="ampm">{ampm}</span>
-              </div>
-              <div className="event__rail">
-                <span className="event__dot"></span>
-              </div>
+      <CalendarBanner cal={cal} />
+      {isEmpty ? (
+        <div className="empty">
+          <strong>Nothing on the calendar today.</strong>
+          Enjoy some white space.
+        </div>
+      ) : (
+        <div className="schedule">
+          {events.map(e => {
+            const end = e.start + e.dur;
+            const isNow = nowMinutes >= e.start && nowMinutes < end;
+            const isPast = nowMinutes >= end;
+            const { time, ampm } = fmtTime(e.start);
+            const body = (
               <div className="event__body">
                 <div className="event__title">
-                  {e.title}
+                  {e.htmlLink
+                    ? <a href={e.htmlLink} target="_blank" rel="noopener" style={{ textDecoration: 'none', color: 'inherit' }}>{e.title}</a>
+                    : e.title
+                  }
                   {isNow && <span className="now-badge">Now</span>}
                 </div>
-                <div className="event__meta">{e.sub} · {e.dur}m</div>
+                {(e.sub || e.allDay) && (
+                  <div className="event__meta">
+                    {e.allDay ? 'All day' : e.sub || ''}
+                    {!e.allDay && e.dur && !e.allDay ? ` · ${e.dur}m` : ''}
+                  </div>
+                )}
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+            return (
+              <div key={e.id} className={`event ${isNow ? 'is-now' : ''} ${isPast ? 'is-past' : ''} ${e.allDay ? 'is-allday' : ''}`}>
+                <div className="event__time">
+                  {e.allDay ? <span style={{ fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase' }}>All<br/>Day</span> : <>{time}<span className="ampm">{ampm}</span></>}
+                </div>
+                <div className="event__rail"><span className="event__dot"></span></div>
+                {body}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </Card>
   );
 }
