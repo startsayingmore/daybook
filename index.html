@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Daybook · Lamide's Dashboard</title>
+<link rel="stylesheet" href="colors_and_type.css" />
+<link rel="stylesheet" href="styles.css" />
+
+<script>
+// Suppress benign cross-origin "Script error." from Babel's in-browser eval
+(function() {
+  const origError = console.error.bind(console);
+  console.error = function(...args) {
+    if (args.length && typeof args[0] === 'string' && args[0].startsWith('Script error')) return;
+    origError(...args);
+  };
+  window.addEventListener('error', (e) => {
+    if (e.message === 'Script error.' && !e.filename) { e.preventDefault(); e.stopImmediatePropagation(); return false; }
+  }, true);
+})();
+</script>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="modules.jsx"></script>
+<script type="text/babel" src="views.jsx"></script>
+<script type="text/babel" src="app.jsx"></script>
+</body>
+</html>

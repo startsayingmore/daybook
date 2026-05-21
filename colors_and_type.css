@@ -1,0 +1,152 @@
+/* ============================================================
+   Start Saying More — Design Tokens
+   ============================================================ */
+
+@font-face { font-family: 'Poppins'; src: url('fonts/Poppins-Light.ttf') format('truetype'); font-weight: 300; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Poppins'; src: url('fonts/Poppins-Regular.ttf') format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Poppins'; src: url('fonts/Poppins-Medium.ttf') format('truetype'); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Poppins'; src: url('fonts/Poppins-SemiBold.ttf') format('truetype'); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Poppins'; src: url('fonts/Poppins-Bold.ttf') format('truetype'); font-weight: 700; font-style: normal; font-display: swap; }
+
+@font-face { font-family: 'Afternoon in Stereo'; src: url('fonts/Afternoon_in_Stereo_Personal_Use.ttf') format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Afternoon in Stereo'; src: url('fonts/1-Afternoon_in_Stereo_Personal_Use.ttf') format('truetype'); font-weight: 700; font-style: normal; font-display: swap; }
+
+:root {
+  /* ---------- Brand color palette ---------- */
+  --ssm-eminence:          #6F3F8E;
+  --ssm-eminence-deep:     #5A3275;
+  --ssm-eminence-soft:     #9C75B8;
+  --ssm-eminence-tint:     #EFE5F5;
+
+  --ssm-orange:            #E0904F;
+  --ssm-orange-light:      #EEA86E;
+  --ssm-champagne:         #E6D895;
+  --ssm-cyan:              #C5EBE2;
+
+  /* ---------- Neutrals ---------- */
+  --ssm-ink:               #1F1320;
+  --ssm-charcoal:          #3E2A45;
+  --ssm-graphite:          #6B5A70;
+  --ssm-stone:             #9C8FA0;
+  --ssm-mist:              #D7CFD9;
+  --ssm-paper:             #FBF8F3;
+  --ssm-white:             #FFFFFF;
+
+  /* ---------- Semantic ---------- */
+  --bg-page:               var(--ssm-paper);
+  --bg-surface:            var(--ssm-white);
+  --bg-surface-tint:       var(--ssm-eminence-tint);
+  --bg-inverse:            var(--ssm-eminence);
+
+  --fg-primary:            var(--ssm-ink);
+  --fg-secondary:          var(--ssm-graphite);
+  --fg-muted:              var(--ssm-stone);
+  --fg-on-brand:           var(--ssm-white);
+  --fg-link:               var(--ssm-eminence);
+  --fg-link-hover:         var(--ssm-eminence-deep);
+
+  --border-subtle:         #E8E0EA;
+  --border-default:        var(--ssm-mist);
+  --border-strong:         var(--ssm-eminence);
+
+  --fg-success:            #2F8F6E;
+  --fg-warning:            #B5762A;
+  --fg-error:              #B33A3A;
+
+  /* ---------- Type ---------- */
+  --font-display:          'Afternoon in Stereo', 'Playfair Display', Georgia, serif;
+  --font-body:             'Poppins', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono:             'JetBrains Mono', ui-monospace, Menlo, monospace;
+
+  /* ---------- Type scale ---------- */
+  --fs-h1:                 40px;
+  --fs-h2:                 32px;
+  --fs-h3:                 24px;
+  --fs-h4:                 20px;
+  --fs-body-lg:            18px;
+  --fs-body:               16px;
+  --fs-body-sm:            14px;
+  --fs-caption:            12px;
+  --fs-eyebrow:            13px;
+
+  --lh-tight:              1.05;
+  --lh-snug:               1.2;
+  --lh-normal:             1.5;
+  --lh-loose:              1.7;
+
+  --tracking-tight:        -0.01em;
+  --tracking-normal:       0;
+  --tracking-wide:         0.04em;
+  --tracking-eyebrow:      0.18em;
+
+  --fw-light:              300;
+  --fw-regular:            400;
+  --fw-medium:             500;
+  --fw-semibold:           600;
+  --fw-bold:               700;
+
+  /* ---------- Spacing (8px base) ---------- */
+  --space-1:               4px;
+  --space-2:               8px;
+  --space-3:               12px;
+  --space-4:               16px;
+  --space-5:               24px;
+  --space-6:               32px;
+  --space-7:               48px;
+  --space-8:               64px;
+
+  /* ---------- Radii ---------- */
+  --radius-xs:             4px;
+  --radius-sm:             8px;
+  --radius-md:             12px;
+  --radius-lg:             16px;
+  --radius-xl:             24px;
+  --radius-pill:           999px;
+
+  /* ---------- Shadows ---------- */
+  --shadow-xs:             0 1px 2px rgba(31, 19, 32, 0.06);
+  --shadow-sm:             0 2px 6px rgba(31, 19, 32, 0.08);
+  --shadow-md:             0 8px 24px rgba(31, 19, 32, 0.10);
+  --shadow-lg:             0 18px 48px rgba(31, 19, 32, 0.14);
+  --shadow-brand:          0 12px 32px rgba(111, 63, 142, 0.22);
+  --shadow-focus:          0 0 0 3px rgba(111, 63, 142, 0.30);
+
+  /* ---------- Motion ---------- */
+  --ease-out:              cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out:           cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast:              140ms;
+  --dur-base:              220ms;
+  --dur-slow:              420ms;
+
+  /* ---------- Layout ---------- */
+  --max-content:           1200px;
+  --max-prose:             68ch;
+  --gutter:                clamp(20px, 4vw, 64px);
+}
+
+html, body {
+  background: var(--bg-page);
+  color: var(--fg-primary);
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  line-height: var(--lh-normal);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, .h1 { font-family: var(--font-body); font-weight: var(--fw-bold); font-size: var(--fs-h1); line-height: var(--lh-snug); letter-spacing: var(--tracking-tight); color: var(--ssm-eminence); margin: 0 0 var(--space-4); }
+h2, .h2 { font-family: var(--font-body); font-weight: var(--fw-bold); font-size: var(--fs-h2); line-height: var(--lh-snug); color: var(--ssm-eminence); margin: 0 0 var(--space-3); }
+h3, .h3 { font-family: var(--font-body); font-weight: var(--fw-semibold); font-size: var(--fs-h3); line-height: var(--lh-snug); color: var(--ssm-eminence); margin: 0 0 var(--space-3); }
+h4, .h4 { font-family: var(--font-body); font-weight: var(--fw-semibold); font-size: var(--fs-h4); line-height: var(--lh-snug); color: var(--fg-primary); margin: 0 0 var(--space-2); }
+
+p { font-family: var(--font-body); font-size: var(--fs-body); line-height: var(--lh-loose); color: var(--fg-secondary); margin: 0 0 var(--space-4); max-width: var(--max-prose); }
+
+.eyebrow { font-family: var(--font-body); font-weight: var(--fw-semibold); font-size: var(--fs-eyebrow); letter-spacing: var(--tracking-eyebrow); text-transform: uppercase; color: var(--ssm-orange); }
+.display { font-family: var(--font-display); font-weight: var(--fw-bold); font-size: 64px; line-height: var(--lh-tight); letter-spacing: var(--tracking-tight); color: var(--ssm-eminence); text-transform: uppercase; }
+.lead { font-size: var(--fs-body-lg); line-height: var(--lh-loose); color: var(--fg-secondary); }
+
+a { color: var(--fg-link); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1.5px; transition: color var(--dur-fast) var(--ease-out); }
+a:hover { color: var(--fg-link-hover); }
+
+code, pre { font-family: var(--font-mono); font-size: 0.92em; }
+::selection { background: var(--ssm-eminence); color: var(--ssm-white); }
