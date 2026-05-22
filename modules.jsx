@@ -459,11 +459,19 @@ function ScheduleModule({ nowMinutes }) {
 // ============================================================
 // GOALS
 // ============================================================
+// Parses "X of Y" or "X / Y" with optional $, commas, and k/K suffix.
+// Handles: "21 / 50", "$5,000 of $40,000", "$5k of $40k", "Ch. 6 of 9"
+const parseNum = (s) => {
+  const clean = s.replace(/[$,\s]/g, '');
+  const km = clean.match(/^(\d+(?:\.\d+)?)([kK])$/);
+  if (km) return parseFloat(km[1]) * 1000;
+  return parseFloat(clean);
+};
 const parseGoalMetric = (unit) => {
   if (!unit) return null;
-  const m = unit.match(/(\d+(?:\.\d+)?)\s*(?:\/|of)\s*(\d+(?:\.\d+)?)/i);
+  const m = unit.match(/(\$?[\d,]+(?:\.\d+)?[kK]?)\s*(?:\/|of)\s*(\$?[\d,]+(?:\.\d+)?[kK]?)/i);
   if (!m) return null;
-  const done = parseFloat(m[1]), total = parseFloat(m[2]);
+  const done = parseNum(m[1]), total = parseNum(m[2]);
   if (!isFinite(done) || !isFinite(total) || total <= 0) return null;
   return { done, total, raw: m[0], start: m.index, end: m.index + m[0].length };
 };
@@ -472,7 +480,9 @@ const setGoalDone = (unit, newDone) => {
   if (!m) return unit;
   const clamped = Math.max(0, Math.min(m.total, Math.round(newDone)));
   const sep = m.raw.match(/of/i) ? m.raw.match(/\s*of\s*/i)[0] : m.raw.match(/\s*\/\s*/)[0];
-  return unit.slice(0, m.start) + `${clamped}${sep}${m.total}` + unit.slice(m.end);
+  // Preserve original formatting of the total, just update the done portion
+  const totalRaw = m.raw.split(/\s*(?:\/|of)\s*/i)[1];
+  return unit.slice(0, m.start) + `${clamped}${sep}${totalRaw}` + unit.slice(m.end);
 };
 
 function GoalsModule() {
