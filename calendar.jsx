@@ -77,6 +77,7 @@ async function fetchFinanceData(token, sheetId) {
     'Financial Health!C5',    // Debt-to-Income
     'Visual Summary!I2:J4',   // Asset breakdown (donut)
     'Monthly Spending!B8:E24',// Budget vs spent by category
+    'Dashboard!B14:C15',      // Debt breakdown (CC + student loans)
   ];
   const params = ranges.map(r => `ranges=${encodeURIComponent(r)}`).join('&');
   try {
@@ -108,11 +109,18 @@ async function fetchFinanceData(token, sheetId) {
       budget: parseFloat((r[2] || '0').replace(/[$,()]/g, '')) || 0,
     })).filter(r => r.name && (r.spent > 0 || r.budget > 0));
 
+    // Debt breakdown rows for donut chart
+    const debtRows = data.valueRanges[11].values || [];
+    const debtBreakdown = debtRows.map(r => ({
+      name: r[0] || '',
+      value: parseFloat((r[1] || '0').replace(/[$,]/g, '')) || 0,
+    })).filter(d => d.name && d.value > 0);
+
     return {
       netWorth: v[0], totalAssets: v[1], totalDebts: v[2], budgetRemaining: v[3],
       studentLoans: v[4], monthlyNet: v[5], savingsRate: v[6],
       emergencyFund: v[7], debtToIncome: v[8],
-      assetBreakdown, budgetCategories,
+      assetBreakdown, budgetCategories, debtBreakdown,
     };
   } catch (e) { console.warn('[Finance] fetch error:', e); return null; }
 }

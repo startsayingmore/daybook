@@ -1385,7 +1385,7 @@ function BucketListView() {
 // FINANCE VIEW — donut + budget bars
 // ============================================================
 const DONUT_COLORS = ['#6F3F8E', '#E0904F', '#2F8F6E', '#5B8FD4', '#B5762A'];
-const DEBT_COLOR   = '#C0392B';
+const DEBT_COLORS  = ['#C0392B', '#922B21'];
 
 function parseAmt(s) {
   if (!s) return 0;
@@ -1421,14 +1421,17 @@ function NetWorthDonutModule() {
   const totalAssets = assets.reduce((s, a) => s + a.value, 0);
   const totalDebts  = parseAmt(fd.totalDebts);
   const netWorth    = parseAmt(fd.netWorth);
+  const debts = (fd.debtBreakdown && fd.debtBreakdown.length > 0)
+    ? fd.debtBreakdown
+    : [{ name: 'Total debts', value: totalDebts }];
 
-  // SVG donut — assets as coloured segments, debts as a single red segment
+  // SVG donut — assets as coloured segments, debts as red segments
   const SIZE = 220, CX = SIZE / 2, CY = SIZE / 2, R = 80, STROKE = 28;
   const circ = 2 * Math.PI * R;
   const grandTotal = totalAssets + totalDebts;
   const allSegments = [
     ...assets.map((a, i) => ({ label: a.name, value: a.value, color: DONUT_COLORS[i % DONUT_COLORS.length] })),
-    { label: 'Total debts', value: totalDebts, color: DEBT_COLOR },
+    ...debts.map((d, i) => ({ label: d.name, value: d.value, color: DEBT_COLORS[i % DEBT_COLORS.length] })),
   ];
   let cumulative = 0;
   const segments = allSegments.map(seg => {
