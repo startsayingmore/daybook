@@ -508,6 +508,21 @@ input, textarea {
 .task__delete:hover { background: rgba(179, 58, 58, 0.1); color: var(--fg-error); opacity: 1; }
 .task__delete svg { width: 14px; height: 14px; }
 
+.task-key {
+  display: flex;
+  gap: 12px;
+  padding: 4px 6px 6px;
+}
+.task-key__item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--fg-muted);
+  letter-spacing: 0.03em;
+}
+
 .task-input {
   display: flex;
   align-items: center;

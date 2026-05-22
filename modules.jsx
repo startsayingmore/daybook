@@ -159,6 +159,15 @@ function TasksModule() {
         <button type="submit" className="submit">Add</button>
       </form>
 
+      <div className="task-key">
+        {[['high', 'var(--ssm-orange)', 'High'], ['mid', 'var(--ssm-eminence-soft)', 'Medium'], ['low', 'var(--ssm-mist)', 'Low']].map(([k, color, label]) => (
+          <span key={k} className="task-key__item">
+            <span style={{ width: 5, height: 12, borderRadius: 3, background: color, display: 'inline-block', flexShrink: 0 }} />
+            {label}
+          </span>
+        ))}
+      </div>
+
       <div className="task-list">
         {visible.length === 0 && (
           <div className="empty">
