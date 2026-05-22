@@ -304,7 +304,7 @@ function MonthCalendarModule() {
   return (
     <Card
       cls="m-monthcal"
-      title="Gym"
+      title="Exercise & Movement"
       count={`${sessions} session${sessions === 1 ? '' : 's'}`}
       action={
       <div className="monthcal__nav">
