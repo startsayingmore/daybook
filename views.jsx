@@ -1380,11 +1380,151 @@ function BucketListView() {
     <div className="grid grid--single">
       <GoalsModule />
     </div>);
+}
 
+// ============================================================
+// FINANCE VIEW — donut + budget bars
+// ============================================================
+const DONUT_COLORS = ['#6F3F8E', '#E0904F', '#2F8F6E', '#5B8FD4', '#B5762A'];
+const DEBT_COLOR   = '#C0392B';
+
+function parseAmt(s) {
+  if (!s) return 0;
+  return parseFloat(String(s).replace(/[$,()]/g, '')) || 0;
+}
+
+function NetWorthDonutModule() {
+  const cal = useCalendar();
+  const fd  = cal.financeData;
+
+  if (!fd || fd._error || !fd.assetBreakdown) {
+    return (
+      <Card cls="m-fin-donut" title="Net worth breakdown" count="Assets vs debts">
+        <p style={{ fontSize: 12, color: 'var(--fg-muted)', margin: 0 }}>
+          {fd?._error ? `Error: ${fd._error}` : 'Connect Google to load live data.'}
+        </p>
+      </Card>
+    );
+  }
+
+  const assets = fd.assetBreakdown;
+  const totalAssets = assets.reduce((s, a) => s + a.value, 0);
+  const totalDebts  = parseAmt(fd.totalDebts);
+  const netWorth    = parseAmt(fd.netWorth);
+
+  // SVG donut — assets as coloured segments, debts as a single red segment
+  const SIZE = 160, CX = SIZE / 2, CY = SIZE / 2, R = 58, STROKE = 22;
+  const circ = 2 * Math.PI * R;
+  const grandTotal = totalAssets + totalDebts;
+  const allSegments = [
+    ...assets.map((a, i) => ({ label: a.name, value: a.value, color: DONUT_COLORS[i % DONUT_COLORS.length] })),
+    { label: 'Total debts', value: totalDebts, color: DEBT_COLOR },
+  ];
+  let cumulative = 0;
+  const segments = allSegments.map(seg => {
+    const pct    = grandTotal > 0 ? seg.value / grandTotal : 0;
+    const dash   = pct * circ;
+    const offset = circ - cumulative * circ;
+    cumulative  += pct;
+    return { ...seg, dash, offset, pct };
+  });
+
+  const fmt = (n) => n >= 1000 ? `$${(n / 1000).toFixed(0)}k` : `$${n}`;
+
+  return (
+    <Card cls="m-fin-donut" title="Net worth breakdown" count={`Net worth ${fd.netWorth}`}>
+      <div className="fin-donut-wrap">
+        <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} style={{ flexShrink: 0 }}>
+          <circle cx={CX} cy={CY} r={R} fill="none" stroke="var(--ssm-mist)" strokeWidth={STROKE} />
+          {segments.map((s, i) => (
+            <circle
+              key={i}
+              cx={CX} cy={CY} r={R}
+              fill="none"
+              stroke={s.color}
+              strokeWidth={STROKE}
+              strokeDasharray={`${s.dash} ${circ - s.dash}`}
+              strokeDashoffset={s.offset}
+              style={{ transform: 'rotate(-90deg)', transformOrigin: `${CX}px ${CY}px`, transition: 'stroke-dasharray 0.6s ease' }}
+            />
+          ))}
+          <text x={CX} y={CY - 8} textAnchor="middle" style={{ fontSize: 11, fill: 'var(--fg-muted)', fontFamily: 'Poppins, sans-serif', fontWeight: 600 }}>Net worth</text>
+          <text x={CX} y={CY + 10} textAnchor="middle" style={{ fontSize: 15, fill: 'var(--ssm-eminence)', fontFamily: 'Poppins, sans-serif', fontWeight: 700 }}>{fd.netWorth}</text>
+        </svg>
+        <div className="fin-donut-legend">
+          {segments.map((s, i) => (
+            <div key={i} className="fin-donut-legend__item">
+              <span className="fin-donut-legend__dot" style={{ background: s.color }} />
+              <span className="fin-donut-legend__label">{s.label}</span>
+              <span className="fin-donut-legend__val">{fmt(s.value)}</span>
+              <span className="fin-donut-legend__pct">{(s.pct * 100).toFixed(1)}%</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function BudgetBarsModule() {
+  const cal = useCalendar();
+  const fd  = cal.financeData;
+
+  if (!fd || fd._error || !fd.budgetCategories) {
+    return (
+      <Card cls="m-fin-budget" title="Budget vs spent" count="Month to date">
+        <p style={{ fontSize: 12, color: 'var(--fg-muted)', margin: 0 }}>
+          {fd?._error ? `Error: ${fd._error}` : 'Connect Google to load live data.'}
+        </p>
+      </Card>
+    );
+  }
+
+  const cats = fd.budgetCategories.filter(c => c.budget > 0 || c.spent > 0);
+  const maxVal = Math.max(...cats.map(c => Math.max(c.spent, c.budget)), 1);
+
+  const fmt = (n) => n >= 1000 ? `$${(n / 1000).toFixed(1)}k` : `$${n}`;
+
+  return (
+    <Card cls="m-fin-budget" title="Budget vs spent" count="Month to date">
+      <div className="fin-bars">
+        {cats.map((c, i) => {
+          const over     = c.spent > c.budget && c.budget > 0;
+          const budgetW  = (c.budget / maxVal) * 100;
+          const spentW   = (c.spent  / maxVal) * 100;
+          return (
+            <div key={i} className="fin-bar-row">
+              <div className="fin-bar-row__label">{c.name}</div>
+              <div className="fin-bar-row__track">
+                <div className="fin-bar-row__budget" style={{ width: `${budgetW}%` }} />
+                <div
+                  className="fin-bar-row__spent"
+                  style={{ width: `${spentW}%`, background: over ? DEBT_COLOR : 'var(--ssm-eminence)' }}
+                />
+              </div>
+              <div className="fin-bar-row__vals">
+                <span style={{ color: over ? DEBT_COLOR : 'var(--fg-primary)', fontWeight: over ? 700 : 500 }}>{fmt(c.spent)}</span>
+                <span style={{ color: 'var(--fg-muted)' }}>/ {fmt(c.budget)}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
+function FinanceView() {
+  return (
+    <div className="grid grid--finance">
+      <NetWorthDonutModule />
+      <BudgetBarsModule />
+    </div>
+  );
 }
 
 Object.assign(window, {
-  WeekView, MonthView, QuarterView, YearView, HabitsView, BucketListView,
+  WeekView, MonthView, QuarterView, YearView, HabitsView, BucketListView, FinanceView,
   // expose individual modules in case Tweaks or other code references them
   WeeklyFocusModule, CurrentlyReadingModule, ReflectionModule, WeekEventsModule, UpcomingEventsModule,
   MonthCalendarModule, MonthlyReflectionModule,

@@ -1,6 +1,6 @@
 /* global React, ReactDOM */
 /* global Icon, useLocalState, todayISO */
-/* global WeekView, MonthView, QuarterView, YearView, HabitsView, BucketListView */
+/* global WeekView, MonthView, QuarterView, YearView, HabitsView, BucketListView, FinanceView */
 /* global TweaksPanel, useTweaks, TweakSection, TweakToggle, TweakText */
 const { useState, useEffect, useMemo } = React;
 
@@ -18,6 +18,7 @@ const VIEWS = [
   { id: 'habits',  label: 'Habits' },
   { id: 'year',    label: 'Year' },
   { id: 'bucket',  label: 'Goals' },
+  { id: 'finance', label: 'Finance' },
 ];
 
 // ============================================================
@@ -87,6 +88,7 @@ const VIEW_SUBLINES = {
   year:    'Foundations for the year ahead.',
   habits:  'Daily habits and your weekly score.',
   bucket:  'Goals — short, mid, and long-term.',
+  finance: 'Your money, at a glance.',
 };
 
 function TopBar({ name, nowMinutes, accentOnGreeting, activeView, onViewChange, openTasks, doneToday, exerciseStreak }) {
@@ -227,6 +229,7 @@ function Dashboard() {
       case 'year':    return <YearView />;
       case 'habits':  return <HabitsView />;
       case 'bucket':  return <BucketListView />;
+      case 'finance': return <FinanceView />;
       default:        return <WeekView nowMinutes={nowMinutes} />;
     }
   };

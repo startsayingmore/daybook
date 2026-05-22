@@ -66,15 +66,17 @@ async function fetchCalendarList(token) {
 async function fetchFinanceData(token, sheetId) {
   if (!sheetId) return null;
   const ranges = [
-    'Dashboard!B5',        // Net Worth
-    'Dashboard!C5',        // Total Assets
-    'Dashboard!D5',        // Total Debts
-    'Dashboard!E5',        // Budget Remaining
-    'Dashboard!C15',       // Student Loans
-    'Dashboard!C42',       // Monthly Net Income
-    'Dashboard!D42',       // Savings Rate
-    'Financial Health!B5', // Emergency Fund
-    'Financial Health!C5', // Debt-to-Income
+    'Dashboard!B5',           // Net Worth
+    'Dashboard!C5',           // Total Assets
+    'Dashboard!D5',           // Total Debts
+    'Dashboard!E5',           // Budget Remaining
+    'Dashboard!C15',          // Student Loans
+    'Dashboard!C42',          // Monthly Net Income
+    'Dashboard!D42',          // Savings Rate
+    'Financial Health!B5',    // Emergency Fund
+    'Financial Health!C5',    // Debt-to-Income
+    'Visual Summary!I2:J4',   // Asset breakdown (donut)
+    'Monthly Spending!B8:E24',// Budget vs spent by category
   ];
   const params = ranges.map(r => `ranges=${encodeURIComponent(r)}`).join('&');
   try {
@@ -90,7 +92,28 @@ async function fetchFinanceData(token, sheetId) {
     }
     const data = await res.json();
     const v = data.valueRanges.map(vr => vr.values?.[0]?.[0] ?? null);
-    return { netWorth: v[0], totalAssets: v[1], totalDebts: v[2], budgetRemaining: v[3], studentLoans: v[4], monthlyNet: v[5], savingsRate: v[6], emergencyFund: v[7], debtToIncome: v[8] };
+
+    // Asset breakdown rows for donut chart
+    const assetRows = data.valueRanges[9].values || [];
+    const assetBreakdown = assetRows.map(r => ({
+      name: r[0] || '',
+      value: parseFloat((r[1] || '0').replace(/[$,]/g, '')) || 0,
+    })).filter(a => a.name && a.value > 0);
+
+    // Budget vs spent rows for bar chart
+    const budgetRows = data.valueRanges[10].values || [];
+    const budgetCategories = budgetRows.map(r => ({
+      name: r[0] || '',
+      spent: parseFloat((r[1] || '0').replace(/[$,()]/g, '')) || 0,
+      budget: parseFloat((r[2] || '0').replace(/[$,()]/g, '')) || 0,
+    })).filter(r => r.name && (r.spent > 0 || r.budget > 0));
+
+    return {
+      netWorth: v[0], totalAssets: v[1], totalDebts: v[2], budgetRemaining: v[3],
+      studentLoans: v[4], monthlyNet: v[5], savingsRate: v[6],
+      emergencyFund: v[7], debtToIncome: v[8],
+      assetBreakdown, budgetCategories,
+    };
   } catch (e) { console.warn('[Finance] fetch error:', e); return null; }
 }
 
