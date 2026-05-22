@@ -575,11 +575,11 @@ const QGOAL_TABS = ['Finance', 'Health', 'Business', 'Personal'];
 function QuarterlyGoalsModule() {
   const { q, year } = currentQuarter();
   const [goals, setGoals] = useLocalState('dash.qGoals.v1', [
-  { id: 'qg1', tab: 'Finance', text: 'Pay off $6,000 in debt', done: false },
-  { id: 'qg2', tab: 'Finance', text: 'Hit $8k in emergency fund', done: false },
-  { id: 'qg3', tab: 'Health', text: 'Hit 60 gym sessions', done: false },
-  { id: 'qg4', tab: 'Business', text: 'Launch SSM v2 onboarding', done: false },
-  { id: 'qg5', tab: 'Personal', text: 'Read 6 books', done: true }]
+  { id: 'qg1', tab: 'Finance', text: 'Pay off $6,000 in debt', done: false, progress: 0 },
+  { id: 'qg2', tab: 'Finance', text: 'Hit $8k in emergency fund', done: false, progress: 0 },
+  { id: 'qg3', tab: 'Health', text: 'Hit 60 gym sessions', done: false, progress: 0 },
+  { id: 'qg4', tab: 'Business', text: 'Launch SSM v2 onboarding', done: false, progress: 0 },
+  { id: 'qg5', tab: 'Personal', text: 'Read 6 books', done: true, progress: 100 }]
   );
   const [tab, setTab] = useState('Finance');
   const [draft, setDraft] = useState('');
@@ -588,9 +588,15 @@ function QuarterlyGoalsModule() {
   const complete = goals.filter((g) => g.done).length;
 
   const add = () => {
-    const v = draft.trim();if (!v) return;
-    setGoals([...goals, { id: 'qg' + Date.now(), tab, text: v, done: false }]);
+    const v = draft.trim(); if (!v) return;
+    setGoals([...goals, { id: 'qg' + Date.now(), tab, text: v, done: false, progress: 0 }]);
     setDraft('');
+  };
+  const setProgress = (id, pct) => {
+    setGoals(goals.map((g) => g.id === id ? { ...g, progress: pct, done: pct === 100 } : g));
+  };
+  const toggleDone = (id) => {
+    setGoals(goals.map((g) => g.id === id ? { ...g, done: !g.done, progress: !g.done ? 100 : g.progress } : g));
   };
 
   return (
@@ -600,21 +606,35 @@ function QuarterlyGoalsModule() {
         <button key={k} className={`pill ${tab === k ? 'is-active' : ''}`} onClick={() => setTab(k)}>{k}</button>
         )}
       </div>
-      <div className="task-list" style={{ maxHeight: 220 }}>
-        {visible.length === 0 && <div className="empty"><strong>No {tab.toLowerCase()} goals yet.</strong>Add your first one below.</div>}
-        {visible.map((g) =>
-        <div key={g.id} className={`task ${g.done ? 'is-done' : ''}`}>
-            <button className={`check ${g.done ? 'is-checked' : ''}`} onClick={() => setGoals(goals.map((x) => x.id === g.id ? { ...x, done: !x.done } : x))}>
-              <Icon name="check" />
-            </button>
-            <div className="task__body"><span className="task__title">{g.text}</span></div>
-            <button className="task__delete" onClick={() => setGoals(goals.filter((x) => x.id !== g.id))} aria-label="remove">
-              <Icon name="trash" />
-            </button>
-          </div>
-        )}
+      <div className="task-list" style={{ maxHeight: 260 }}>
+        {visible.length === 0 && <div className="empty"><strong>No {tab.toLowerCase()} goals yet.</strong> Add your first one below.</div>}
+        {visible.map((g) => {
+          const pct = g.progress ?? (g.done ? 100 : 0);
+          return (
+            <div key={g.id} className={`task ${g.done ? 'is-done' : ''}`} style={{ display: 'block', padding: '8px 6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                <button className={`check ${g.done ? 'is-checked' : ''}`} onClick={() => toggleDone(g.id)} style={{ flexShrink: 0 }}>
+                  <Icon name="check" />
+                </button>
+                <span className="task__title" style={{ flex: 1 }}>{g.text}</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ssm-eminence)', minWidth: 32, textAlign: 'right' }}>{pct}%</span>
+                <button className="task__delete" onClick={() => setGoals(goals.filter((x) => x.id !== g.id))} aria-label="remove">
+                  <Icon name="trash" />
+                </button>
+              </div>
+              <div
+                className="goal__bar"
+                style={{ cursor: 'pointer', marginLeft: 32 }}
+                onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setProgress(g.id, Math.round(((e.clientX - r.left) / r.width) * 100)); }}
+                title="Click to set progress"
+              >
+                <div className="goal__fill" style={{ width: `${pct}%` }} />
+              </div>
+            </div>
+          );
+        })}
       </div>
-      <form className="task-input task-input--mini" onSubmit={(e) => {e.preventDefault();add();}}>
+      <form className="task-input task-input--mini" onSubmit={(e) => { e.preventDefault(); add(); }}>
         <Icon name="plus" />
         <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={`Add a ${tab.toLowerCase()} goal…`} />
         <button type="submit" className="submit">Add</button>
