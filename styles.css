@@ -422,6 +422,7 @@ input, textarea {
   border-radius: 999px;
   letter-spacing: 0.02em;
 }
+.tag--ssm     { background: var(--ssm-eminence); color: #fff; }
 .tag--work    { background: rgba(111, 63, 142, 0.10); color: var(--ssm-eminence); }
 .tag--life    { background: rgba(224, 144, 79, 0.14); color: #B5762A; }
 .tag--health  { background: rgba(47, 143, 110, 0.12); color: var(--fg-success); }

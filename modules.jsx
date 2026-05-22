@@ -67,7 +67,8 @@ const Card = ({ className = '', cls, title, count, action, children }) => (
 // ============================================================
 // TASKS
 // ============================================================
-const TAG_LABEL = { work: 'Work', life: 'Life', health: 'Health', read: 'Read' };
+const TAG_LABEL = { ssm: 'SSM', work: 'Work', life: 'Life', health: 'Health', read: 'Read' };
+const TAG_COLOR = { ssm: '#6F3F8E', work: '#6F3F8E', life: '#B5762A', health: '#2F8F6E', read: '#2F7568' };
 
 function TasksModule() {
   const [tasks, setTasks] = useLocalState('dash.tasks.v1', [
@@ -123,13 +124,16 @@ function TasksModule() {
           onChange={e => setDraft(e.target.value)}
           placeholder="What needs to happen?"
         />
-        <select
-          value={draftTag}
-          onChange={e => setDraftTag(e.target.value)}
-          style={{ border: 'none', background: 'transparent', fontSize: 11, color: 'var(--fg-muted)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', outline: 'none', cursor: 'pointer' }}
-        >
-          {Object.entries(TAG_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-        </select>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: TAG_COLOR[draftTag], flexShrink: 0, transition: 'background 0.15s' }} />
+          <select
+            value={draftTag}
+            onChange={e => setDraftTag(e.target.value)}
+            style={{ border: 'none', background: 'transparent', fontSize: 11, color: TAG_COLOR[draftTag], fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', outline: 'none', cursor: 'pointer', transition: 'color 0.15s' }}
+          >
+            {Object.entries(TAG_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+        </span>
         <button
           type="button"
           onClick={() => setDraftPri(p => p === 'high' ? 'low' : p === 'mid' ? 'high' : 'mid')}
