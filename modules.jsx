@@ -85,6 +85,8 @@ function TasksModule() {
   const [filter, setFilter] = useState('today');
   const [draft, setDraft] = useState('');
   const [draftTag, setDraftTag] = useState('work');
+  const [editing, setEditing] = useState(null);
+  const [editDraft, setEditDraft] = useState({ title: '', tag: 'work', priority: 'mid' });
 
   const add = (e) => {
     e?.preventDefault?.();
@@ -99,7 +101,13 @@ function TasksModule() {
     const next = STATUS_ORDER[(STATUS_ORDER.indexOf(cur) + 1) % STATUS_ORDER.length];
     return { ...t, status: next, done: next === 'done' };
   }));
-  const remove = (id) => setTasks(tasks.filter(t => t.id !== id));
+  const remove = (id) => { setTasks(tasks.filter(t => t.id !== id)); setEditing(null); };
+  const startEdit = (t) => { setEditing(t.id); setEditDraft({ title: t.title, tag: t.tag, priority: t.priority }); };
+  const saveEdit = (id) => {
+    if (!editDraft.title.trim()) return;
+    setTasks(tasks.map(t => t.id === id ? { ...t, ...editDraft, title: editDraft.title.trim() } : t));
+    setEditing(null);
+  };
 
   const visible = useMemo(() => {
     if (filter === 'done') return tasks.filter(t => taskStatus(t) === 'done');
@@ -160,30 +168,68 @@ function TasksModule() {
         )}
         {visible.map(t => {
           const status = taskStatus(t);
+          const isEditing = editing === t.id;
           return (
             <div key={t.id} className={`task task--${status} ${status === 'done' ? 'is-done' : ''}`}>
-              <button
-                className={`check check--${status}`}
-                onClick={() => cycleStatus(t.id)}
-                aria-label={`Status: ${STATUS_LABEL[status]}. Click to advance.`}
-                title={`${STATUS_LABEL[status]} — click to advance`}
-              >
-                {status === 'doing' && <span className="check__half" />}
-                <Icon name="check" />
-              </button>
-              <div className="task__body">
-                <span className="task__title">{t.title}</span>
-                <div className="task__meta">
-                  <span className={`task__tag tag--${t.tag}`}>{TAG_LABEL[t.tag]}</span>
-                  <span className={`task__status task__status--${status}`}>{STATUS_LABEL[status]}</span>
+              {isEditing ? (
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, padding: '4px 0' }}>
+                  <input
+                    autoFocus
+                    value={editDraft.title}
+                    onChange={e => setEditDraft(d => ({ ...d, title: e.target.value }))}
+                    onKeyDown={e => { if (e.key === 'Enter') saveEdit(t.id); if (e.key === 'Escape') setEditing(null); }}
+                    style={{ border: '1.5px solid var(--ssm-eminence)', borderRadius: 8, padding: '6px 10px', fontSize: 13, fontWeight: 500, outline: 'none', width: '100%', background: 'var(--ssm-paper)' }}
+                  />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <select
+                      value={editDraft.tag}
+                      onChange={e => setEditDraft(d => ({ ...d, tag: e.target.value }))}
+                      style={{ border: '1px solid var(--border-default)', borderRadius: 7, padding: '4px 8px', fontSize: 11, fontWeight: 700, color: TAG_COLOR[editDraft.tag], background: 'var(--ssm-paper)', outline: 'none', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.06em' }}
+                    >
+                      {Object.entries(TAG_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                    </select>
+                    <select
+                      value={editDraft.priority}
+                      onChange={e => setEditDraft(d => ({ ...d, priority: e.target.value }))}
+                      style={{ border: '1px solid var(--border-default)', borderRadius: 7, padding: '4px 8px', fontSize: 11, fontWeight: 600, background: 'var(--ssm-paper)', outline: 'none', cursor: 'pointer', color: 'var(--fg-muted)' }}
+                    >
+                      <option value="high">High</option>
+                      <option value="mid">Medium</option>
+                      <option value="low">Low</option>
+                    </select>
+                    <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
+                      <button onClick={() => saveEdit(t.id)} style={{ fontSize: 11, fontWeight: 700, color: 'var(--ssm-eminence)', padding: '4px 10px', background: 'var(--ssm-eminence-tint)', borderRadius: 7 }}>Save</button>
+                      <button onClick={() => setEditing(null)} style={{ fontSize: 11, fontWeight: 600, color: 'var(--fg-muted)', padding: '4px 10px', background: 'var(--bg-page)', borderRadius: 7, border: '1px solid var(--border-subtle)' }}>Cancel</button>
+                      <button onClick={() => remove(t.id)} style={{ fontSize: 11, fontWeight: 600, color: 'var(--fg-error)', padding: '4px 10px', background: 'rgba(179,58,58,0.08)', borderRadius: 7 }}>Delete</button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span className={`task__priority p-${t.priority}`}></span>
-                <button className="task__delete" onClick={() => remove(t.id)} aria-label="delete">
-                  <Icon name="trash" />
-                </button>
-              </div>
+              ) : (
+                <>
+                  <button
+                    className={`check check--${status}`}
+                    onClick={() => cycleStatus(t.id)}
+                    aria-label={`Status: ${STATUS_LABEL[status]}. Click to advance.`}
+                    title={`${STATUS_LABEL[status]} — click to advance`}
+                  >
+                    {status === 'doing' && <span className="check__half" />}
+                    <Icon name="check" />
+                  </button>
+                  <div className="task__body" style={{ cursor: 'pointer' }} onClick={() => startEdit(t)}>
+                    <span className="task__title">{t.title}</span>
+                    <div className="task__meta">
+                      <span className={`task__tag tag--${t.tag}`}>{TAG_LABEL[t.tag]}</span>
+                      <span className={`task__status task__status--${status}`}>{STATUS_LABEL[status]}</span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span className={`task__priority p-${t.priority}`}></span>
+                    <button className="task__delete" onClick={() => remove(t.id)} aria-label="delete">
+                      <Icon name="trash" />
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           );
         })}
