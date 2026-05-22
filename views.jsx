@@ -415,110 +415,106 @@ function GymConsistencyModule() {
 // ============================================================
 function FinancesModule({ compact = false }) {
   const { q, year } = currentQuarter();
-  const [data, setData] = useLocalState('dash.finances.v1', {
-    debtTotal: 18500,
-    debtPaid: 4200,
-    savingsGoal: 12000,
-    savingsHave: 5680,
-    monthlyIncome: 8400,
-    monthlySpend: 5120
-  });
-
-  const debtPct = Math.round(data.debtPaid / Math.max(1, data.debtTotal) * 100);
-  const saveProgressPct = Math.round(data.savingsHave / Math.max(1, data.savingsGoal) * 100);
-  const netWorth = data.savingsHave - (data.debtTotal - data.debtPaid);
-  const cashflow = data.monthlyIncome - data.monthlySpend;
-
-  const updateNum = (k, v) => setData({ ...data, [k]: Math.max(0, +v || 0) });
-  const fmt = (n) => '$' + n.toLocaleString();
+  const cal = useCalendar();
+  const fd = cal.financeData; // live sheet data when connected + scoped
 
   if (compact) {
     return (
       <Card cls="m-finance" title="Finances" count={`Q${q} ${year}`}>
-        <div className="fin-mini">
-          <div className="fin-mini__row">
-            <div>
-              <p className="fin-mini__k">Net worth</p>
-              <p className={`fin-mini__v ${netWorth >= 0 ? 'is-pos' : 'is-neg'}`}>{netWorth >= 0 ? '' : '-'}{fmt(Math.abs(netWorth))}</p>
+        {fd ? (
+          <div className="fin-mini">
+            <div className="fin-mini__row">
+              <div>
+                <p className="fin-mini__k">Net worth</p>
+                <p className="fin-mini__v is-pos">{fd.netWorth}</p>
+              </div>
+              <div>
+                <p className="fin-mini__k">Monthly net</p>
+                <p className="fin-mini__v is-pos">{fd.monthlyNet}</p>
+              </div>
             </div>
-            <div>
-              <p className="fin-mini__k">Cash flow / mo</p>
-              <p className={`fin-mini__v ${cashflow >= 0 ? 'is-pos' : 'is-neg'}`}>{cashflow >= 0 ? '+' : ''}{fmt(cashflow)}</p>
+            <div className="fin-mini__row" style={{ marginTop: 6 }}>
+              <div>
+                <p className="fin-mini__k">Budget left</p>
+                <p className="fin-mini__v is-pos">{fd.budgetRemaining}</p>
+              </div>
+              <div>
+                <p className="fin-mini__k">Savings rate</p>
+                <p className="fin-mini__v">{fd.savingsRate}</p>
+              </div>
             </div>
           </div>
-          <div className="fin-mini__bars">
-            <div>
-              <div className="fin-mini__barhead"><span>Debt paid</span><strong>{debtPct}%</strong></div>
-              <div className="goal__bar"><div className="goal__fill" style={{ width: `${debtPct}%`, background: 'linear-gradient(90deg, var(--ssm-orange) 0%, var(--ssm-orange-light) 100%)' }}></div></div>
-            </div>
-            <div>
-              <div className="fin-mini__barhead"><span>Savings progress</span><strong>{saveProgressPct}%</strong></div>
-              <div className="goal__bar"><div className="goal__fill" style={{ width: `${saveProgressPct}%` }}></div></div>
-            </div>
-          </div>
-        </div>
-      </Card>);
-
+        ) : (
+          <p style={{ fontSize: 12, color: 'var(--fg-muted)', margin: 0 }}>
+            Connect Google to see live figures from your sheet.
+          </p>
+        )}
+      </Card>
+    );
   }
 
+  if (fd) {
+    return (
+      <Card cls="m-finance" title="Finances" count={`Q${q} ${year} · live from Google Sheets`}>
+        <div className="fin-grid">
+          <div className="fin-stat">
+            <p className="fin-stat__k">Net worth</p>
+            <p className="fin-stat__v is-pos">{fd.netWorth}</p>
+            <p className="fin-stat__sub">assets − debts</p>
+          </div>
+          <div className="fin-stat">
+            <p className="fin-stat__k">Total assets</p>
+            <p className="fin-stat__v">{fd.totalAssets}</p>
+            <p className="fin-stat__sub">cash + investments + savings</p>
+          </div>
+          <div className="fin-stat">
+            <p className="fin-stat__k">Total debts</p>
+            <p className="fin-stat__v is-neg">{fd.totalDebts}</p>
+            <p className="fin-stat__sub">credit cards + student loans</p>
+          </div>
+          <div className="fin-stat">
+            <p className="fin-stat__k">Monthly net</p>
+            <p className="fin-stat__v is-pos">{fd.monthlyNet}</p>
+            <p className="fin-stat__sub">estimated take-home</p>
+          </div>
+        </div>
+        <div className="fin-grid" style={{ marginTop: 10 }}>
+          <div className="fin-stat">
+            <p className="fin-stat__k">Budget remaining</p>
+            <p className="fin-stat__v is-pos">{fd.budgetRemaining}</p>
+            <p className="fin-stat__sub">this month</p>
+          </div>
+          <div className="fin-stat">
+            <p className="fin-stat__k">Savings rate</p>
+            <p className="fin-stat__v">{fd.savingsRate}</p>
+            <p className="fin-stat__sub">of take-home</p>
+          </div>
+          <div className="fin-stat">
+            <p className="fin-stat__k">Student loans</p>
+            <p className="fin-stat__v is-neg">{fd.studentLoans}</p>
+            <p className="fin-stat__sub">NSU · IBR $413/mo</p>
+          </div>
+          <div className="fin-stat">
+            <p className="fin-stat__k">Emergency fund</p>
+            <p className="fin-stat__v">{fd.emergencyFund}</p>
+            <p className="fin-stat__sub">of expenses covered</p>
+          </div>
+        </div>
+        <div className="fin-health">
+          <span className="fin-health__pill">DTI {fd.debtToIncome}</span>
+          <span className="fin-health__pill">Savings rate {fd.savingsRate}</span>
+          <a href={`https://docs.google.com/spreadsheets/d/${((window.DAYBOOK_CONFIG||{}).financeSheetId||'')}`} target="_blank" rel="noopener noreferrer" className="fin-health__link">Open sheet ↗</a>
+        </div>
+      </Card>
+    );
+  }
+
+  // Fallback — no sheet data yet (token lacks scope; will work after reconnect)
   return (
-    <Card cls="m-finance" title="Finances" count={`Q${q} ${year} · debt paydown & savings`}>
-      <div className="fin-grid">
-        <div className="fin-stat">
-          <p className="fin-stat__k">Net worth</p>
-          <p className={`fin-stat__v ${netWorth >= 0 ? 'is-pos' : 'is-neg'}`}>{netWorth >= 0 ? '' : '-'}{fmt(Math.abs(netWorth))}</p>
-          <p className="fin-stat__sub">savings − remaining debt</p>
-        </div>
-        <div className="fin-stat">
-          <p className="fin-stat__k">Monthly cash flow</p>
-          <p className={`fin-stat__v ${cashflow >= 0 ? 'is-pos' : 'is-neg'}`}>{cashflow >= 0 ? '+' : ''}{fmt(cashflow)}</p>
-          <p className="fin-stat__sub">income − spend</p>
-        </div>
-        <div className="fin-stat">
-          <p className="fin-stat__k">Debt remaining</p>
-          <p className="fin-stat__v">{fmt(Math.max(0, data.debtTotal - data.debtPaid))}</p>
-          <p className="fin-stat__sub">of {fmt(data.debtTotal)} total</p>
-        </div>
-        <div className="fin-stat">
-          <p className="fin-stat__k">Savings</p>
-          <p className="fin-stat__v">{fmt(data.savingsHave)}</p>
-          <p className="fin-stat__sub">toward {fmt(data.savingsGoal)} goal</p>
-        </div>
-      </div>
-
-      <div className="fin-bar">
-        <div className="fin-bar__head">
-          <span>Debt paid off</span>
-          <span className="fin-bar__pct">{debtPct}% <span style={{ color: 'var(--fg-muted)' }}>· {fmt(data.debtTotal - data.debtPaid)} remaining</span></span>
-        </div>
-        <div className="goal__bar"><div className="goal__fill" style={{ width: `${debtPct}%`, background: 'linear-gradient(90deg, var(--ssm-orange) 0%, var(--ssm-orange-light) 100%)' }}></div></div>
-      </div>
-      <div className="fin-bar">
-        <div className="fin-bar__head">
-          <span>Savings progress</span>
-          <span className="fin-bar__pct">{saveProgressPct}% <span style={{ color: 'var(--fg-muted)' }}>· {fmt(data.savingsGoal - data.savingsHave)} to go</span></span>
-        </div>
-        <div className="goal__bar"><div className="goal__fill" style={{ width: `${saveProgressPct}%` }}></div></div>
-      </div>
-
-      <details className="fin-edit">
-        <summary>Edit values</summary>
-        <div className="fin-edit__grid">
-          {[
-          ['debtTotal', 'Total debt'],
-          ['debtPaid', 'Debt paid'],
-          ['savingsGoal', 'Savings goal'],
-          ['savingsHave', 'Saved so far'],
-          ['monthlyIncome', 'Monthly income'],
-          ['monthlySpend', 'Monthly spend']].
-          map(([k, label]) =>
-          <label key={k}>
-              <span>{label}</span>
-              <input type="number" value={data[k]} onChange={(e) => updateNum(k, e.target.value)} />
-            </label>
-          )}
-        </div>
-      </details>
+    <Card cls="m-finance" title="Finances" count={`Q${q} ${year}`}>
+      <p style={{ fontSize: 12, color: 'var(--fg-muted)', margin: '0 0 8px' }}>
+        Disconnect and reconnect your Google account once to grant Sheets access — figures will pull from your spreadsheet automatically after that.
+      </p>
     </Card>);
 
 }

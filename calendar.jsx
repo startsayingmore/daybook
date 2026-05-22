@@ -4,7 +4,8 @@
 const { useState, useEffect } = React;
 
 const GCAL_CLIENT_ID = ((window.DAYBOOK_CONFIG || {}).gcalClientId || '').trim();
-const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly';
+const FINANCE_SHEET_ID = ((window.DAYBOOK_CONFIG || {}).financeSheetId || '').trim();
+const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/spreadsheets.readonly';
 const SELECTED_KEY = 'dash.gcal.selectedCals';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -62,6 +63,32 @@ async function fetchCalendarList(token) {
   return (data.items||[]).map(c => ({ id: c.id, name: c.summaryOverride||c.summary, color: c.backgroundColor||'#6F3F8E', primary: !!c.primary }));
 }
 
+async function fetchFinanceData(token, sheetId) {
+  if (!sheetId) return null;
+  const ranges = [
+    'Dashboard!B5',        // Net Worth
+    'Dashboard!C5',        // Total Assets
+    'Dashboard!D5',        // Total Debts
+    'Dashboard!E5',        // Budget Remaining
+    'Dashboard!C15',       // Student Loans
+    'Dashboard!C42',       // Monthly Net Income
+    'Dashboard!D42',       // Savings Rate
+    'Financial Health!B5', // Emergency Fund
+    'Financial Health!C5', // Debt-to-Income
+  ];
+  const params = ranges.map(r => `ranges=${encodeURIComponent(r)}`).join('&');
+  try {
+    const res = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values:batchGet?${params}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (!res.ok) return null; // fail silently (e.g. token lacks scope yet)
+    const data = await res.json();
+    const v = data.valueRanges.map(vr => vr.values?.[0]?.[0] ?? null);
+    return { netWorth: v[0], totalAssets: v[1], totalDebts: v[2], budgetRemaining: v[3], studentLoans: v[4], monthlyNet: v[5], savingsRate: v[6], emergencyFund: v[7], debtToIncome: v[8] };
+  } catch { return null; }
+}
+
 async function fetchEventsForCalendar(token, calId, calColor, timeMin, timeMax) {
   const params = new URLSearchParams({ timeMin, timeMax, singleEvents: 'true', orderBy: 'startTime', maxResults: '50' });
   const data = await apiFetch(token, `/calendars/${encodeURIComponent(calId)}/events?${params}`);
@@ -85,7 +112,7 @@ const gcalStore = (() => {
 
   let state = {
     status: sessionToken ? 'loading' : 'idle',
-    events: null, weekEvents: null, upcomingEvents: null,
+    events: null, weekEvents: null, upcomingEvents: null, financeData: null,
     calendarList: null, selectedIds: loadSelectedIds(),
     token: sessionToken || null, error: null,
   };
@@ -97,18 +124,19 @@ const gcalStore = (() => {
   const doFetch = async (token, calendarList, selectedIds) => {
     try {
       const cals = calendarList || await fetchCalendarList(token);
-      const [events, weekEvents, upcomingEvents] = await Promise.all([
+      const [events, weekEvents, upcomingEvents, financeData] = await Promise.all([
         fetchAllEvents(token, cals, selectedIds, todayMidnight(), todayEndOfDay()),
         fetchAllEvents(token, cals, selectedIds, weekMondayMidnight(), weekSundayEndOfDay()),
         fetchAllEvents(token, cals, selectedIds, todayMidnight(), upcoming60End()),
+        fetchFinanceData(token, FINANCE_SHEET_ID),
       ]);
       try { sessionStorage.setItem(SESSION_KEY, token); } catch {}
       localStorage.setItem(AUTO_KEY, '1');
-      set({ status: 'ready', token, calendarList: cals, events, weekEvents, upcomingEvents });
+      set({ status: 'ready', token, calendarList: cals, events, weekEvents, upcomingEvents, financeData });
     } catch (e) {
       if (e.code === 401) {
         try { sessionStorage.removeItem(SESSION_KEY); } catch {}
-        set({ status: 'idle', token: null, events: null, weekEvents: null, upcomingEvents: null, calendarList: null });
+        set({ status: 'idle', token: null, events: null, weekEvents: null, upcomingEvents: null, financeData: null, calendarList: null });
         connect(true); // token expired — try silent re-auth, fall back to Connect button
       } else { set({ status: 'error', error: e.message }); }
     }
@@ -147,7 +175,7 @@ const gcalStore = (() => {
     if (state.token && window.google?.accounts?.oauth2) google.accounts.oauth2.revoke(state.token, ()=>{});
     try { sessionStorage.removeItem(SESSION_KEY); } catch {}
     localStorage.removeItem(AUTO_KEY);
-    set({ status: 'idle', events: null, weekEvents: null, upcomingEvents: null, token: null, calendarList: null, error: null });
+    set({ status: 'idle', events: null, weekEvents: null, upcomingEvents: null, financeData: null, token: null, calendarList: null, error: null });
   };
 
   // Kick off fetch immediately if we recovered a session token
