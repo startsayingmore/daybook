@@ -82,11 +82,16 @@ async function fetchFinanceData(token, sheetId) {
       `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values:batchGet?${params}`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
-    if (!res.ok) return null; // fail silently (e.g. token lacks scope yet)
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      const msg = errBody?.error?.message || `HTTP ${res.status}`;
+      console.warn('[Finance] Sheets API error:', res.status, msg);
+      return { _error: `${res.status}: ${msg}` };
+    }
     const data = await res.json();
     const v = data.valueRanges.map(vr => vr.values?.[0]?.[0] ?? null);
     return { netWorth: v[0], totalAssets: v[1], totalDebts: v[2], budgetRemaining: v[3], studentLoans: v[4], monthlyNet: v[5], savingsRate: v[6], emergencyFund: v[7], debtToIncome: v[8] };
-  } catch { return null; }
+  } catch (e) { console.warn('[Finance] fetch error:', e); return null; }
 }
 
 async function fetchEventsForCalendar(token, calId, calColor, timeMin, timeMax) {

@@ -418,10 +418,13 @@ function FinancesModule({ compact = false }) {
   const cal = useCalendar();
   const fd = cal.financeData; // live sheet data when connected + scoped
 
+  const hasError = fd && fd._error;
+  const hasData = fd && !fd._error;
+
   if (compact) {
     return (
       <Card cls="m-finance" title="Finances" count={`Q${q} ${year}`}>
-        {fd ? (
+        {hasData ? (
           <div className="fin-mini">
             <div className="fin-mini__row">
               <div>
@@ -444,6 +447,10 @@ function FinancesModule({ compact = false }) {
               </div>
             </div>
           </div>
+        ) : hasError ? (
+          <p style={{ fontSize: 11, color: '#c0392b', margin: 0, fontFamily: 'monospace' }}>
+            Sheets error: {fd._error}
+          </p>
         ) : (
           <p style={{ fontSize: 12, color: 'var(--fg-muted)', margin: 0 }}>
             Connect Google to see live figures from your sheet.
@@ -453,7 +460,7 @@ function FinancesModule({ compact = false }) {
     );
   }
 
-  if (fd) {
+  if (hasData) {
     return (
       <Card cls="m-finance" title="Finances" count={`Q${q} ${year} · live from Google Sheets`}>
         <div className="fin-grid">
@@ -509,7 +516,24 @@ function FinancesModule({ compact = false }) {
     );
   }
 
-  // Fallback — no sheet data yet (token lacks scope; will work after reconnect)
+  // Error state — Sheets API returned an error (likely not enabled in Cloud Console)
+  if (hasError) {
+    return (
+      <Card cls="m-finance" title="Finances" count={`Q${q} ${year}`}>
+        <p style={{ fontSize: 12, color: '#c0392b', margin: '0 0 6px', fontWeight: 600 }}>
+          Sheets API error
+        </p>
+        <p style={{ fontSize: 11, color: '#c0392b', margin: '0 0 8px', fontFamily: 'monospace' }}>
+          {fd._error}
+        </p>
+        <p style={{ fontSize: 12, color: 'var(--fg-muted)', margin: 0 }}>
+          If you see "403" or "disabled", go to <strong>console.cloud.google.com</strong> → your Daybook project → APIs &amp; Services → Library → search "Google Sheets API" → Enable. Then disconnect and reconnect here.
+        </p>
+      </Card>
+    );
+  }
+
+  // Fallback — not connected yet
   return (
     <Card cls="m-finance" title="Finances" count={`Q${q} ${year}`}>
       <p style={{ fontSize: 12, color: 'var(--fg-muted)', margin: '0 0 8px' }}>
