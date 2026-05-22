@@ -985,6 +985,67 @@ function BucketListModule() {
 }
 
 // ============================================================
+// GCAL WEEK — real Google Calendar week view (Mon–Sun)
+// Falls back to WeekEventsModule when not connected
+// ============================================================
+const GCAL_DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+function GcalWeekModule() {
+  const cal = useCalendar();
+
+  if (cal.status !== 'ready') return <WeekEventsModule />;
+
+  const todayStr = todayISO();
+  const week = weekDates();
+  const byDate = {};
+  (cal.weekEvents || []).forEach((e) => {
+    if (!byDate[e.date]) byDate[e.date] = [];
+    byDate[e.date].push(e);
+  });
+  const totalCount = (cal.weekEvents || []).length;
+
+  const fmtTime = (mins) => {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const h12 = h % 12 || 12;
+    return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
+  };
+
+  return (
+    <Card cls="m-events" title="Events this week" count={`${totalCount}`}>
+      <div className="gcal-week">
+        {week.map((iso, i) => {
+          const isToday = iso === todayStr;
+          const dayEvents = byDate[iso] || [];
+          const dayNum = new Date(iso + 'T12:00:00').getDate();
+          return (
+            <div key={iso} className={`gcal-day${isToday ? ' is-today' : ''}`}>
+              <div className="gcal-day__head">
+                <span className="gcal-day__name">{GCAL_DAY_NAMES[i]}</span>
+                <span className="gcal-day__num">{dayNum}</span>
+              </div>
+              <div className="gcal-day__events">
+                {dayEvents.length === 0 && <span className="gcal-day__none">—</span>}
+                {dayEvents.map((e) => (
+                  <a key={e.id} href={e.htmlLink || '#'} target="_blank" rel="noopener noreferrer" className="gcal-ev">
+                    <span className="gcal-ev__dot" style={{ background: e.calColor || 'var(--ssm-eminence)' }}></span>
+                    <span className="gcal-ev__body">
+                      <span className="gcal-ev__title">{e.title}</span>
+                      {!e.allDay && <span className="gcal-ev__time">{fmtTime(e.start)}</span>}
+                    </span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
+// ============================================================
 // VIEWS — orchestrate which modules render per tab
 // ============================================================
 function WeekView({ nowMinutes }) {
@@ -995,7 +1056,7 @@ function WeekView({ nowMinutes }) {
       <ScheduleModule nowMinutes={nowMinutes} />
       <HabitsModule />
       <CurrentlyReadingModule />
-      <WeekEventsModule />
+      <GcalWeekModule />
       <FinancesModule compact />
       <SocialModule />
       <LinksModule />
@@ -1054,7 +1115,7 @@ function BucketListView() {
 Object.assign(window, {
   WeekView, MonthView, QuarterView, YearView, HabitsView, BucketListView,
   // expose individual modules in case Tweaks or other code references them
-  WeeklyFocusModule, CurrentlyReadingModule, ReflectionModule, WeekEventsModule,
+  WeeklyFocusModule, CurrentlyReadingModule, ReflectionModule, WeekEventsModule, GcalWeekModule,
   MonthCalendarModule, MonthlyReflectionModule,
   GymConsistencyModule, FinancesModule, QuarterlyGoalsModule, QuarterlyWinsModule, BooksReadModule, IdeaParkingLotModule,
   YearVisionModule, FocusBucketsModule,
