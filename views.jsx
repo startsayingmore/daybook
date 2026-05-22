@@ -1077,11 +1077,9 @@ function UpcomingEventsModule() {
     return { text: `${Math.abs(n)}d ago`, cls: 'is-past' };
   };
 
-  // ── Calendar-fed list ──────────────────────────────────────
-  const calEvents = connected ? (cal.upcomingEvents || []) : [];
-  const calSorted = [...calEvents].sort((a, b) =>
-    a.date !== b.date ? a.date.localeCompare(b.date) : a.start - b.start
-  );
+  // ── Calendar-fed list — all-day events only (birthdays, trips, holidays, etc.) ──
+  const calEvents = connected ? (cal.upcomingEvents || []).filter((e) => e.allDay) : [];
+  const calSorted = [...calEvents].sort((a, b) => a.date.localeCompare(b.date));
   const calUpcoming = calSorted.filter((e) => daysUntil(e.date) >= 0).length;
 
   // ── Manual list (fallback) ─────────────────────────────────

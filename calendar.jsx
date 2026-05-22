@@ -76,10 +76,19 @@ async function fetchAllEvents(token, calendarList, selectedIds, timeMin, timeMax
 
 // ── Store ─────────────────────────────────────────────────────────────────────
 
-const AUTO_KEY = 'dash.gcal.wasConnected';
+const AUTO_KEY    = 'dash.gcal.wasConnected';
+const SESSION_KEY = 'dash.gcal.token';
 
 const gcalStore = (() => {
-  let state = { status: 'idle', events: null, weekEvents: null, upcomingEvents: null, calendarList: null, selectedIds: loadSelectedIds(), token: null, error: null };
+  // Reuse token from sessionStorage — survives page refresh within the same browser tab.
+  const sessionToken = (() => { try { return sessionStorage.getItem(SESSION_KEY); } catch { return null; } })();
+
+  let state = {
+    status: sessionToken ? 'loading' : 'idle',
+    events: null, weekEvents: null, upcomingEvents: null,
+    calendarList: null, selectedIds: loadSelectedIds(),
+    token: sessionToken || null, error: null,
+  };
   const listeners = new Set();
   const set  = (patch) => { state = {...state,...patch}; listeners.forEach(fn=>fn({...state})); };
   const get  = () => ({...state});
@@ -93,15 +102,19 @@ const gcalStore = (() => {
         fetchAllEvents(token, cals, selectedIds, weekMondayMidnight(), weekSundayEndOfDay()),
         fetchAllEvents(token, cals, selectedIds, todayMidnight(), upcoming60End()),
       ]);
+      try { sessionStorage.setItem(SESSION_KEY, token); } catch {}
       localStorage.setItem(AUTO_KEY, '1');
       set({ status: 'ready', token, calendarList: cals, events, weekEvents, upcomingEvents });
     } catch (e) {
-      if (e.code === 401) { set({ status: 'idle', token: null, events: null, weekEvents: null, upcomingEvents: null, calendarList: null }); connect(); }
-      else { set({ status: 'error', error: e.message }); }
+      if (e.code === 401) {
+        try { sessionStorage.removeItem(SESSION_KEY); } catch {}
+        set({ status: 'idle', token: null, events: null, weekEvents: null, upcomingEvents: null, calendarList: null });
+        connect(true); // token expired — try silent re-auth, fall back to Connect button
+      } else { set({ status: 'error', error: e.message }); }
     }
   };
 
-  // silent=true: no popup on failure, just fall back to 'idle' (shows Connect button)
+  // silent=true → no popup on failure, just show the Connect button
   const connect = (silent = false) => {
     if (!GCAL_CLIENT_ID) { set({ status: 'unconfigured' }); return; }
     if (!window.google?.accounts?.oauth2) { set({ status: 'no_gis' }); return; }
@@ -109,15 +122,11 @@ const gcalStore = (() => {
     const client = google.accounts.oauth2.initTokenClient({
       client_id: GCAL_CLIENT_ID, scope: SCOPES,
       callback: (resp) => {
-        if (resp.error) {
-          silent ? set({ status: 'idle' }) : set({ status: 'error', error: resp.error });
-          return;
-        }
+        if (resp.error) { silent ? set({ status: 'idle' }) : set({ status: 'error', error: resp.error }); return; }
         doFetch(resp.access_token, null, state.selectedIds);
       },
     });
-    // silent = no UI prompt; non-silent first connect = let Google decide
-    client.requestAccessToken({ prompt: silent ? '' : (state.token ? '' : undefined) });
+    client.requestAccessToken({ prompt: silent ? '' : undefined });
   };
 
   const refresh = () => { if (!state.token) { connect(); return; } set({ status: 'loading' }); doFetch(state.token, state.calendarList, state.selectedIds); };
@@ -136,20 +145,23 @@ const gcalStore = (() => {
 
   const disconnect = () => {
     if (state.token && window.google?.accounts?.oauth2) google.accounts.oauth2.revoke(state.token, ()=>{});
+    try { sessionStorage.removeItem(SESSION_KEY); } catch {}
     localStorage.removeItem(AUTO_KEY);
     set({ status: 'idle', events: null, weekEvents: null, upcomingEvents: null, token: null, calendarList: null, error: null });
   };
 
+  // Kick off fetch immediately if we recovered a session token
+  if (sessionToken) { Promise.resolve().then(() => doFetch(sessionToken, null, state.selectedIds)); }
+
   return { get, subscribe, connect, refresh, disconnect, toggleCalendar };
 })();
 
-// Auto-reconnect silently on page load if the user was previously connected.
-// Polls until GIS script finishes loading (it's async), then fires a no-prompt token request.
-if (localStorage.getItem(AUTO_KEY)) {
-  const tryAutoConnect = (attempts) => {
+// If no session token but user was previously connected, try silent OAuth re-auth.
+// Polls until the GIS script (loaded async) is ready.
+if (!sessionStorage.getItem(SESSION_KEY) && localStorage.getItem(AUTO_KEY)) {
+  const tryAutoConnect = (n) => {
     if (window.google?.accounts?.oauth2) { gcalStore.connect(true); }
-    else if (attempts < 30) { setTimeout(() => tryAutoConnect(attempts + 1), 200); }
-    else { gcalStore.connect(false); } // GIS never loaded — fall through to normal connect
+    else if (n < 30) { setTimeout(() => tryAutoConnect(n + 1), 200); }
   };
   tryAutoConnect(0);
 }
