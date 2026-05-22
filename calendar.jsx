@@ -72,7 +72,7 @@ async function fetchFinanceData(token, sheetId) {
     'Dashboard!E5',           // Budget Remaining
     'Dashboard!C15',          // Student Loans
     'Dashboard!C42',          // Monthly Net Income
-    'Dashboard!D42',          // Savings Rate
+    'Financial Health!D5',    // Savings Rate (net take-home) — 23.7% matches $1,053/paycheck math
     'Financial Health!B5',    // Emergency Fund
     'Financial Health!C5',    // Debt-to-Income
     'Visual Summary!I2:J4',   // Asset breakdown (donut)
