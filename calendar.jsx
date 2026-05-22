@@ -224,11 +224,25 @@ const gcalStore = (() => {
     if (!GCAL_CLIENT_ID) { set({ status: 'unconfigured' }); return; }
     if (!window.google?.accounts?.oauth2) { set({ status: 'no_gis' }); return; }
     set({ status: 'loading' });
+
+    let settled = false;
+    const settle = (fn) => { if (settled) return; settled = true; fn(); };
+
+    // Mobile browsers often never fire the callback for silent requests.
+    // Give it 6 seconds then fall back to showing the Connect button.
+    const timeoutId = silent
+      ? setTimeout(() => settle(() => set({ status: 'idle' })), 6000)
+      : null;
+
     const client = google.accounts.oauth2.initTokenClient({
       client_id: GCAL_CLIENT_ID, scope: SCOPES,
       callback: (resp) => {
-        if (resp.error) { silent ? set({ status: 'idle' }) : set({ status: 'error', error: resp.error }); return; }
-        doFetch(resp.access_token, null, state.selectedIds);
+        if (timeoutId) clearTimeout(timeoutId);
+        if (resp.error) {
+          settle(() => silent ? set({ status: 'idle' }) : set({ status: 'error', error: resp.error }));
+          return;
+        }
+        settle(() => doFetch(resp.access_token, null, state.selectedIds));
       },
     });
     client.requestAccessToken({ prompt: silent ? '' : undefined });
