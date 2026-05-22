@@ -424,7 +424,7 @@ function ScheduleModule({ nowMinutes }) {
                 <div className="event__time">
                   {e.allDay ? <span style={{ fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase' }}>All<br/>Day</span> : <>{time}<span className="ampm">{ampm}</span></>}
                 </div>
-                <div className="event__rail"><span className="event__dot"></span></div>
+                <div className="event__rail"><span className="event__dot" style={e.calColor && !isNow ? { borderColor: e.calColor } : {}}></span></div>
                 {body}
               </div>
             );
