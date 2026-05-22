@@ -258,7 +258,7 @@ const VIEW_SUBLINES = {
   finance: 'Your money, at a glance.',
 };
 
-function TopBar({ name, nowMinutes, accentOnGreeting, activeView, onViewChange, openTasks, doneToday, exerciseStreak }) {
+function TopBar({ name, nowMinutes, accentOnGreeting, activeView, onViewChange, openTasks, doneToday, exerciseStreak, onOpenSettings }) {
   const now = new Date();
   const greeting = useMemo(() => {
     const h = now.getHours();
@@ -283,7 +283,14 @@ function TopBar({ name, nowMinutes, accentOnGreeting, activeView, onViewChange, 
   return (
     <header className="topbar">
       <div className="topbar__greeting">
-        <span className="eyebrow">{now.toLocaleDateString('en-US', { weekday: 'long' })} · {now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+        <span className="eyebrow">
+          {now.toLocaleDateString('en-US', { weekday: 'long' })} · {now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+          <button className="topbar__settings-btn" onClick={onOpenSettings} aria-label="Settings">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+          </button>
+        </span>
         <h1>
           {greeting},{' '}
           {accentOnGreeting
@@ -460,6 +467,7 @@ function Dashboard() {
           openTasks={counts.openTasks}
           doneToday={counts.doneToday}
           exerciseStreak={counts.exerciseStreak}
+          onOpenSettings={openSettings}
         />
 
         <div key={activeView} className="view-wrap">

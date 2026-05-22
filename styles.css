@@ -165,9 +165,24 @@ input, textarea {
 }
 
 .topbar__greeting .eyebrow {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-bottom: 8px;
 }
+.topbar__settings-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--fg-muted);
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+.topbar__settings-btn:hover { color: var(--ssm-eminence); background: var(--ssm-eminence-tint); }
 .topbar__greeting h1 {
   font-family: var(--font-display);
   font-size: clamp(34px, 3.4vw, 48px);
@@ -2312,6 +2327,7 @@ input, textarea {
   .app { grid-template-columns: 1fr; }
   .rail { display: none; }
   .main { padding: 20px; }
+  .topbar__settings-btn { display: flex; }
 }
 
 /* ============================================================
