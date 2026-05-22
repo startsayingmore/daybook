@@ -389,16 +389,41 @@ function MonthlyReflectionModule() {
 // GYM CONSISTENCY (13-week bars)
 // ============================================================
 function GymConsistencyModule() {
-  // weeks of sessions count; index 0 = oldest, 12 = current week
-  const [data, setData] = useLocalState('dash.gymBars.v1', [2, 3, 2, 4, 3, 5, 4, 3, 5, 4, 6, 3, 5]);
-  const max = Math.max(...data, 5);
-  const avg = (data.reduce((s, x) => s + x, 0) / data.length).toFixed(1);
+  const [calData] = useLocalState('dash.monthCal.v1', { trackedDays: {} });
+  const trackedDays = calData.trackedDays || {};
+
+  const weeklyData = useMemo(() => {
+    const today = new Date();
+    const dow = today.getDay(); // 0=Sun
+    const toMonday = dow === 0 ? -6 : 1 - dow;
+    const currentMonday = new Date(today);
+    currentMonday.setDate(today.getDate() + toMonday);
+    currentMonday.setHours(0, 0, 0, 0);
+
+    return Array.from({ length: 13 }, (_, w) => {
+      const weekStart = new Date(currentMonday);
+      weekStart.setDate(currentMonday.getDate() - (12 - w) * 7);
+      let count = 0;
+      for (let d = 0; d < 7; d++) {
+        const day = new Date(weekStart);
+        day.setDate(weekStart.getDate() + d);
+        const iso = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+        if (trackedDays[iso]) count++;
+      }
+      return count;
+    });
+  }, [trackedDays]);
+
+  const max = Math.max(...weeklyData, 1);
+  const avg = (weeklyData.reduce((s, x) => s + x, 0) / weeklyData.length).toFixed(1);
+  const total = weeklyData.reduce((s, x) => s + x, 0);
+
   return (
-    <Card cls="m-gymconsist" title="Gym consistency" count="Last 13 weeks" action={<span style={{ fontSize: 11, color: 'var(--fg-muted)', fontWeight: 500 }}>avg <strong style={{ color: 'var(--ssm-eminence)' }}>{avg}</strong>/wk</span>}>
+    <Card cls="m-gymconsist" title="Gym consistency" count={`${total} session${total === 1 ? '' : 's'} · 13 wks`} action={<span style={{ fontSize: 11, color: 'var(--fg-muted)', fontWeight: 500 }}>avg <strong style={{ color: 'var(--ssm-eminence)' }}>{avg}</strong>/wk</span>}>
       <div className="gymbars">
-        {data.map((v, i) =>
-        <div key={i} className="gymbar-col" title={`Week ${i + 1}: ${v} sessions`}>
-            <span className="gymbar" style={{ height: `${v / max * 100}%`, background: i === data.length - 1 ? 'var(--ssm-orange)' : 'var(--ssm-orange-light)' }}></span>
+        {weeklyData.map((v, i) =>
+          <div key={i} className="gymbar-col" title={`${v} session${v === 1 ? '' : 's'}`}>
+            <span className="gymbar" style={{ height: `${v / max * 100}%`, background: i === weeklyData.length - 1 ? 'var(--ssm-orange)' : 'var(--ssm-orange-light)' }}></span>
           </div>
         )}
       </div>
@@ -406,8 +431,8 @@ function GymConsistencyModule() {
         <span>13 weeks ago</span>
         <span>This week</span>
       </div>
-    </Card>);
-
+    </Card>
+  );
 }
 
 // ============================================================
