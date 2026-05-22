@@ -1,6 +1,7 @@
 /* global React */
 /* global Card, Icon, useLocalState, todayISO */
 /* global TasksModule, HabitsModule, ScheduleModule, GoalsModule, LinksModule, SocialModule */
+/* global parseGoalMetric, setGoalDone */
 const { useState, useEffect, useMemo, useRef } = React;
 
 // ============================================================
@@ -575,25 +576,47 @@ const QGOAL_TABS = ['Finance', 'Health', 'Business', 'Personal'];
 function QuarterlyGoalsModule() {
   const { q, year } = currentQuarter();
   const [goals, setGoals] = useLocalState('dash.qGoals.v1', [
-  { id: 'qg1', tab: 'Finance', text: 'Pay off $6,000 in debt', done: false, progress: 0 },
-  { id: 'qg2', tab: 'Finance', text: 'Hit $8k in emergency fund', done: false, progress: 0 },
-  { id: 'qg3', tab: 'Health', text: 'Hit 60 gym sessions', done: false, progress: 0 },
-  { id: 'qg4', tab: 'Business', text: 'Launch SSM v2 onboarding', done: false, progress: 0 },
-  { id: 'qg5', tab: 'Personal', text: 'Read 6 books', done: true, progress: 100 }]
+  { id: 'qg1', tab: 'Finance', text: 'Pay off $6,000 in debt', done: false, progress: 0, metric: '' },
+  { id: 'qg2', tab: 'Finance', text: 'Hit $8k in emergency fund', done: false, progress: 0, metric: '' },
+  { id: 'qg3', tab: 'Health', text: 'Hit 60 gym sessions', done: false, progress: 0, metric: '' },
+  { id: 'qg4', tab: 'Business', text: 'Launch SSM v2 onboarding', done: false, progress: 0, metric: '' },
+  { id: 'qg5', tab: 'Personal', text: 'Read 6 books', done: true, progress: 100, metric: '6 of 6' }]
   );
   const [tab, setTab] = useState('Finance');
   const [draft, setDraft] = useState('');
+  const [editing, setEditing] = useState(null);
+  const [editDraft, setEditDraft] = useState({ text: '', metric: '' });
 
   const visible = goals.filter((g) => g.tab === tab);
   const complete = goals.filter((g) => g.done).length;
 
   const add = () => {
     const v = draft.trim(); if (!v) return;
-    setGoals([...goals, { id: 'qg' + Date.now(), tab, text: v, done: false, progress: 0 }]);
+    setGoals([...goals, { id: 'qg' + Date.now(), tab, text: v, done: false, progress: 0, metric: '' }]);
     setDraft('');
   };
+  const startEdit = (g) => { setEditing(g.id); setEditDraft({ text: g.text, metric: g.metric || '' }); };
+  const saveEdit = (id) => {
+    if (!editDraft.text.trim()) return;
+    setGoals(goals.map((g) => {
+      if (g.id !== id) return g;
+      const parsed = parseGoalMetric(editDraft.metric);
+      const progress = parsed ? Math.round(parsed.done / parsed.total * 100) : g.progress;
+      return { ...g, text: editDraft.text.trim(), metric: editDraft.metric, progress, done: progress === 100 };
+    }));
+    setEditing(null);
+  };
   const setProgress = (id, pct) => {
-    setGoals(goals.map((g) => g.id === id ? { ...g, progress: pct, done: pct === 100 } : g));
+    setGoals(goals.map((g) => {
+      if (g.id !== id) return g;
+      const parsed = parseGoalMetric(g.metric);
+      if (parsed) {
+        const newDone = Math.round(pct / 100 * parsed.total);
+        const newMetric = setGoalDone(g.metric, newDone);
+        return { ...g, metric: newMetric, progress: Math.round(Math.max(0, Math.min(parsed.total, newDone)) / parsed.total * 100), done: pct === 100 };
+      }
+      return { ...g, progress: pct, done: pct === 100 };
+    }));
   };
   const toggleDone = (id) => {
     setGoals(goals.map((g) => g.id === id ? { ...g, done: !g.done, progress: !g.done ? 100 : g.progress } : g));
@@ -606,30 +629,58 @@ function QuarterlyGoalsModule() {
         <button key={k} className={`pill ${tab === k ? 'is-active' : ''}`} onClick={() => setTab(k)}>{k}</button>
         )}
       </div>
-      <div className="task-list" style={{ maxHeight: 260 }}>
+      <div className="task-list" style={{ maxHeight: 280 }}>
         {visible.length === 0 && <div className="empty"><strong>No {tab.toLowerCase()} goals yet.</strong> Add your first one below.</div>}
         {visible.map((g) => {
-          const pct = g.progress ?? (g.done ? 100 : 0);
+          const parsed = parseGoalMetric(g.metric);
+          const pct = parsed ? Math.round(parsed.done / parsed.total * 100) : (g.progress ?? (g.done ? 100 : 0));
+          const isEditing = editing === g.id;
           return (
             <div key={g.id} className={`task ${g.done ? 'is-done' : ''}`} style={{ display: 'block', padding: '8px 6px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                <button className={`check ${g.done ? 'is-checked' : ''}`} onClick={() => toggleDone(g.id)} style={{ flexShrink: 0 }}>
-                  <Icon name="check" />
-                </button>
-                <span className="task__title" style={{ flex: 1 }}>{g.text}</span>
-                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ssm-eminence)', minWidth: 32, textAlign: 'right' }}>{pct}%</span>
-                <button className="task__delete" onClick={() => setGoals(goals.filter((x) => x.id !== g.id))} aria-label="remove">
-                  <Icon name="trash" />
-                </button>
-              </div>
-              <div
-                className="goal__bar"
-                style={{ cursor: 'pointer', marginLeft: 32 }}
-                onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setProgress(g.id, Math.round(((e.clientX - r.left) / r.width) * 100)); }}
-                title="Click to set progress"
-              >
-                <div className="goal__fill" style={{ width: `${pct}%` }} />
-              </div>
+              {isEditing ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                  <input
+                    autoFocus
+                    value={editDraft.text}
+                    onChange={(e) => setEditDraft((d) => ({ ...d, text: e.target.value }))}
+                    onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(g.id); if (e.key === 'Escape') setEditing(null); }}
+                    placeholder="Goal title…"
+                    style={{ border: '1.5px solid var(--ssm-eminence)', borderRadius: 8, padding: '6px 10px', fontSize: 13, fontWeight: 600, outline: 'none', background: 'var(--ssm-paper)', fontFamily: 'inherit' }}
+                  />
+                  <input
+                    value={editDraft.metric}
+                    onChange={(e) => setEditDraft((d) => ({ ...d, metric: e.target.value }))}
+                    placeholder="Metric e.g. $2,000 of $6,000 or 21 of 60"
+                    style={{ border: '1px solid var(--border-default)', borderRadius: 8, padding: '5px 10px', fontSize: 12, outline: 'none', background: 'var(--ssm-paper)', fontFamily: 'inherit', color: 'var(--fg-muted)' }}
+                  />
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button onClick={() => saveEdit(g.id)} className="btn btn--primary" style={{ fontSize: 11, padding: '4px 12px' }}>Save</button>
+                    <button onClick={() => setEditing(null)} className="btn btn--ghost" style={{ fontSize: 11, padding: '4px 10px' }}>Cancel</button>
+                    <button onClick={() => { setGoals(goals.filter((x) => x.id !== g.id)); setEditing(null); }} style={{ fontSize: 11, fontWeight: 600, color: 'var(--fg-error)', padding: '4px 10px', background: 'rgba(179,58,58,0.08)', borderRadius: 7, marginLeft: 'auto' }}>Delete</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                    <button className={`check ${g.done ? 'is-checked' : ''}`} onClick={() => toggleDone(g.id)} style={{ flexShrink: 0 }}>
+                      <Icon name="check" />
+                    </button>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <span className="task__title" style={{ cursor: 'pointer' }} onClick={() => startEdit(g)}>{g.text}</span>
+                      {g.metric && <span style={{ display: 'block', fontSize: 11, color: 'var(--fg-muted)', marginTop: 1 }}>{g.metric}</span>}
+                    </div>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ssm-eminence)', minWidth: 32, textAlign: 'right' }}>{pct}%</span>
+                  </div>
+                  <div
+                    className="goal__bar"
+                    style={{ cursor: 'pointer', marginLeft: 32 }}
+                    onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setProgress(g.id, Math.round(((e.clientX - r.left) / r.width) * 100)); }}
+                    title="Click to set progress"
+                  >
+                    <div className="goal__fill" style={{ width: `${pct}%` }} />
+                  </div>
+                </>
+              )}
             </div>
           );
         })}

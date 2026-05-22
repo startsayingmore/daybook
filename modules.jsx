@@ -849,6 +849,7 @@ function LinksModule() {
 Object.assign(window, {
   TasksModule, HabitsModule, ScheduleModule, GoalsModule, NotesModule, LinksModule,
   Icon, useLocalState, todayISO, Card,
+  parseGoalMetric, setGoalDone,
 });
 
 // ============================================================
