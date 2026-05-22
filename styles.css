@@ -1250,8 +1250,7 @@ input, textarea {
   grid-template-columns: repeat(12, 1fr);
   grid-auto-rows: minmax(120px, auto);
 }
-.grid--quarter .m-gymconsist { grid-column: span 5; }
-.grid--quarter .m-finance    { grid-column: span 7; }
+.grid--quarter .m-gymconsist { grid-column: span 12; }
 .grid--quarter .m-qgoals     { grid-column: span 12; }
 .grid--quarter .m-qwins      { grid-column: span 6; }
 .grid--quarter .m-qbooks     { grid-column: span 6; }
@@ -1268,7 +1267,13 @@ input, textarea {
 .grid--single { grid-template-columns: 1fr; }
 
 /* Finance view */
-.grid--finance { grid-template-columns: 1fr; align-items: start; }
+.grid--finance {
+  grid-template-columns: repeat(12, 1fr);
+  align-items: start;
+}
+.grid--finance .m-finance,
+.grid--finance .m-fin-donut,
+.grid--finance .m-fin-budget { grid-column: span 12; }
 
 /* Donut chart */
 .fin-donut-wrap { display: flex; align-items: center; gap: 24px; }
