@@ -41,12 +41,6 @@ function Rail({ activeView, onViewChange, showQuote, counts, onOpenSettings }) {
           >
             <span className={`dot ${activeView === v.id ? 'is-on' : ''}`}></span>
             {v.label}
-            {v.id === 'week' && counts.openTasks > 0 && (
-              <span className="count">{counts.openTasks}</span>
-            )}
-            {v.id === 'habits' && counts.habitCount > 0 && (
-              <span className="count">{counts.habitCount}</span>
-            )}
           </button>
         ))}
       </div>
