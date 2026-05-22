@@ -378,16 +378,42 @@ input, textarea {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  background: transparent;
   transition: all var(--dur-fast) var(--ease-out);
+  flex-shrink: 0;
 }
 .check:hover { border-color: var(--ssm-eminence); }
-.check.is-checked {
+.check--doing {
+  border-color: var(--ssm-orange);
+  background: rgba(224, 144, 79, 0.10);
+}
+.check--doing .check__half {
+  position: absolute;
+  inset: 0;
+  background: var(--ssm-orange);
+  clip-path: polygon(0 0, 50% 0, 50% 100%, 0 100%);
+}
+.check--done {
   background: var(--ssm-eminence);
   border-color: var(--ssm-eminence);
   color: var(--ssm-white);
 }
-.check svg { width: 12px; height: 12px; stroke-width: 3; opacity: 0; transition: opacity var(--dur-fast) var(--ease-out); }
-.check.is-checked svg { opacity: 1; }
+.check svg { position: relative; width: 12px; height: 12px; stroke-width: 3; opacity: 0; transition: opacity var(--dur-fast) var(--ease-out); }
+.check--done svg { opacity: 1; }
+
+.task__status {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 1px 7px;
+  border-radius: 999px;
+}
+.task__status--todo  { background: rgba(33, 22, 41, 0.05); color: var(--fg-muted); }
+.task__status--doing { background: rgba(224, 144, 79, 0.14); color: #B5762A; }
+.task__status--done  { background: rgba(111, 63, 142, 0.10); color: var(--ssm-eminence); }
 
 .task__body {
   display: flex;
@@ -728,6 +754,27 @@ input, textarea {
   align-items: center;
   gap: 4px;
 }
+.goal__stepper {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  background: var(--bg-page);
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+.goal:hover .goal__stepper { opacity: 1; }
+.goal__stepper button {
+  width: 20px; height: 20px;
+  font-size: 13px; font-weight: 700; line-height: 1;
+  color: var(--ssm-eminence);
+  background: transparent; border: none; padding: 0; cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.goal__stepper button + button { border-left: 1px solid var(--border-subtle); }
+.goal__stepper button:hover:not(:disabled) { background: var(--ssm-eminence-tint); }
+.goal__stepper button:disabled { color: var(--fg-muted); opacity: 0.4; cursor: default; }
 
 /* ---------- Notes / journal ---------- */
 .notes {

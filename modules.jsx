@@ -69,38 +69,47 @@ const Card = ({ className = '', cls, title, count, action, children }) => (
 // ============================================================
 const TAG_LABEL = { ssm: 'SSM', work: 'Work', life: 'Life', health: 'Health', read: 'Read' };
 const TAG_COLOR = { ssm: '#6F3F8E', work: '#6F3F8E', life: '#B5762A', health: '#2F8F6E', read: '#2F7568' };
+const STATUS_ORDER = ['todo', 'doing', 'done'];
+const STATUS_LABEL = { todo: 'Not started', doing: 'In progress', done: 'Done' };
+const taskStatus = (t) => t.status || (t.done ? 'done' : 'todo');
 
 function TasksModule() {
   const [tasks, setTasks] = useLocalState('dash.tasks.v1', [
-    { id: 't1', title: 'Sketch onboarding revisions for SSM v2', done: false, priority: 'high', tag: 'work' },
-    { id: 't2', title: 'Reply to grant committee', done: false, priority: 'high', tag: 'work' },
-    { id: 't3', title: 'Long walk after lunch', done: true, priority: 'low', tag: 'health' },
-    { id: 't4', title: 'Read chapter 4 of "Quiet"', done: false, priority: 'mid', tag: 'read' },
-    { id: 't5', title: 'Call mom this evening', done: false, priority: 'mid', tag: 'life' },
-    { id: 't6', title: 'Refill prescription', done: false, priority: 'low', tag: 'health' },
+    { id: 't1', title: 'Sketch onboarding revisions for SSM v2', status: 'doing', priority: 'high', tag: 'ssm' },
+    { id: 't2', title: 'Reply to grant committee', status: 'todo', priority: 'high', tag: 'work' },
+    { id: 't3', title: 'Long walk after lunch', status: 'done', priority: 'low', tag: 'health' },
+    { id: 't4', title: 'Read chapter 4 of "Quiet"', status: 'doing', priority: 'mid', tag: 'read' },
+    { id: 't5', title: 'Call mom this evening', status: 'todo', priority: 'mid', tag: 'life' },
+    { id: 't6', title: 'Refill prescription', status: 'todo', priority: 'low', tag: 'health' },
   ]);
   const [filter, setFilter] = useState('today');
   const [draft, setDraft] = useState('');
-  const [draftPri, setDraftPri] = useState('mid');
   const [draftTag, setDraftTag] = useState('work');
 
   const add = (e) => {
     e?.preventDefault?.();
     const v = draft.trim();
     if (!v) return;
-    setTasks([{ id: 't' + Date.now(), title: v, done: false, priority: draftPri, tag: draftTag }, ...tasks]);
+    setTasks([{ id: 't' + Date.now(), title: v, status: 'todo', priority: 'mid', tag: draftTag }, ...tasks]);
     setDraft('');
   };
-  const toggle = (id) => setTasks(tasks.map(t => t.id === id ? { ...t, done: !t.done } : t));
+  const cycleStatus = (id) => setTasks(tasks.map(t => {
+    if (t.id !== id) return t;
+    const cur = taskStatus(t);
+    const next = STATUS_ORDER[(STATUS_ORDER.indexOf(cur) + 1) % STATUS_ORDER.length];
+    return { ...t, status: next, done: next === 'done' };
+  }));
   const remove = (id) => setTasks(tasks.filter(t => t.id !== id));
 
   const visible = useMemo(() => {
-    if (filter === 'done') return tasks.filter(t => t.done);
-    if (filter === 'open') return tasks.filter(t => !t.done);
+    if (filter === 'done') return tasks.filter(t => taskStatus(t) === 'done');
+    if (filter === 'open') return tasks.filter(t => taskStatus(t) !== 'done');
+    if (filter === 'doing') return tasks.filter(t => taskStatus(t) === 'doing');
     return tasks;
   }, [tasks, filter]);
 
-  const openCount = tasks.filter(t => !t.done).length;
+  const openCount = tasks.filter(t => taskStatus(t) !== 'done').length;
+  const doingCount = tasks.filter(t => taskStatus(t) === 'doing').length;
 
   return (
     <Card
@@ -109,9 +118,14 @@ function TasksModule() {
       count={`${openCount} open`}
       action={
         <div className="pills">
-          {['today', 'open', 'done'].map(k => (
+          {[
+            ['today', 'All'],
+            ['doing', `Doing${doingCount ? ` · ${doingCount}` : ''}`],
+            ['open', 'Open'],
+            ['done', 'Done'],
+          ].map(([k, label]) => (
             <button key={k} className={`pill ${filter === k ? 'is-active' : ''}`} onClick={() => setFilter(k)}>
-              {k === 'today' ? 'All' : k === 'open' ? 'Open' : 'Done'}
+              {label}
             </button>
           ))}
         </div>
@@ -134,12 +148,6 @@ function TasksModule() {
             {Object.entries(TAG_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
         </span>
-        <button
-          type="button"
-          onClick={() => setDraftPri(p => p === 'high' ? 'low' : p === 'mid' ? 'high' : 'mid')}
-          title="Priority"
-          style={{ width: 5, height: 16, borderRadius: 3, background: draftPri === 'high' ? 'var(--ssm-orange)' : draftPri === 'mid' ? 'var(--ssm-eminence-soft)' : 'var(--ssm-mist)' }}
-        />
         <button type="submit" className="submit">Add</button>
       </form>
 
@@ -150,26 +158,35 @@ function TasksModule() {
             Nothing on this list — go take a walk.
           </div>
         )}
-        {visible.map(t => (
-          <div key={t.id} className={`task ${t.done ? 'is-done' : ''}`}>
-            <button className={`check ${t.done ? 'is-checked' : ''}`} onClick={() => toggle(t.id)} aria-label="toggle">
-              <Icon name="check" />
-            </button>
-            <div className="task__body">
-              <span className="task__title">{t.title}</span>
-              <div className="task__meta">
-                <span className={`task__tag tag--${t.tag}`}>{TAG_LABEL[t.tag]}</span>
-                <span style={{ opacity: 0.6 }}>{t.priority === 'high' ? 'High priority' : t.priority === 'mid' ? 'Medium' : 'Low'}</span>
+        {visible.map(t => {
+          const status = taskStatus(t);
+          return (
+            <div key={t.id} className={`task task--${status} ${status === 'done' ? 'is-done' : ''}`}>
+              <button
+                className={`check check--${status}`}
+                onClick={() => cycleStatus(t.id)}
+                aria-label={`Status: ${STATUS_LABEL[status]}. Click to advance.`}
+                title={`${STATUS_LABEL[status]} — click to advance`}
+              >
+                {status === 'doing' && <span className="check__half" />}
+                <Icon name="check" />
+              </button>
+              <div className="task__body">
+                <span className="task__title">{t.title}</span>
+                <div className="task__meta">
+                  <span className={`task__tag tag--${t.tag}`}>{TAG_LABEL[t.tag]}</span>
+                  <span className={`task__status task__status--${status}`}>{STATUS_LABEL[status]}</span>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span className={`task__priority p-${t.priority}`}></span>
+                <button className="task__delete" onClick={() => remove(t.id)} aria-label="delete">
+                  <Icon name="trash" />
+                </button>
               </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span className={`task__priority p-${t.priority}`}></span>
-              <button className="task__delete" onClick={() => remove(t.id)} aria-label="delete">
-                <Icon name="trash" />
-              </button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </Card>
   );
@@ -442,6 +459,22 @@ function ScheduleModule({ nowMinutes }) {
 // ============================================================
 // GOALS
 // ============================================================
+const parseGoalMetric = (unit) => {
+  if (!unit) return null;
+  const m = unit.match(/(\d+(?:\.\d+)?)\s*(?:\/|of)\s*(\d+(?:\.\d+)?)/i);
+  if (!m) return null;
+  const done = parseFloat(m[1]), total = parseFloat(m[2]);
+  if (!isFinite(done) || !isFinite(total) || total <= 0) return null;
+  return { done, total, raw: m[0], start: m.index, end: m.index + m[0].length };
+};
+const setGoalDone = (unit, newDone) => {
+  const m = parseGoalMetric(unit);
+  if (!m) return unit;
+  const clamped = Math.max(0, Math.min(m.total, Math.round(newDone)));
+  const sep = m.raw.match(/of/i) ? m.raw.match(/\s*of\s*/i)[0] : m.raw.match(/\s*\/\s*/)[0];
+  return unit.slice(0, m.start) + `${clamped}${sep}${m.total}` + unit.slice(m.end);
+};
+
 function GoalsModule() {
   const [goals, setGoals] = useLocalState('dash.goals.v1', [
     { id: 'g1', title: 'Ship dashboard v1 to GitHub', progress: 78, deadline: 'May 24', unit: 'Step 7 of 9' },
@@ -489,6 +522,20 @@ function GoalsModule() {
       <div className="goals">
         {goals.map(g => {
           const isEditing = editing === g.id;
+          const metric = parseGoalMetric(g.unit);
+          const pct = metric ? Math.round(metric.done / metric.total * 100) : (g.progress ?? 0);
+          const bumpDone = (delta) => {
+            if (!metric) return;
+            setGoals(goals.map(x => x.id === g.id ? { ...x, unit: setGoalDone(x.unit, metric.done + delta), progress: Math.round(Math.max(0, Math.min(metric.total, metric.done + delta)) / metric.total * 100) } : x));
+          };
+          const setFromBar = (newPct) => {
+            if (metric) {
+              const newDone = Math.round(newPct / 100 * metric.total);
+              setGoals(goals.map(x => x.id === g.id ? { ...x, unit: setGoalDone(x.unit, newDone), progress: Math.round(newDone / metric.total * 100) } : x));
+            } else {
+              setGoals(goals.map(x => x.id === g.id ? { ...x, progress: newPct } : x));
+            }
+          };
           return (
             <div key={g.id} className="goal">
               {isEditing ? (
@@ -528,19 +575,23 @@ function GoalsModule() {
                       {g.title}
                       <Icon name="write" style={{ width: 11, height: 11, opacity: 0, marginLeft: 6, verticalAlign: 'middle' }} className="goal__edit-icon" />
                     </div>
-                    <div className="goal__pct">{g.progress}%</div>
+                    <div className="goal__pct" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {metric && (
+                        <div className="goal__stepper">
+                          <button type="button" onClick={(e) => { e.stopPropagation(); bumpDone(-1); }} disabled={metric.done <= 0} aria-label="Decrease">−</button>
+                          <button type="button" onClick={(e) => { e.stopPropagation(); bumpDone(1); }} disabled={metric.done >= metric.total} aria-label="Increase">+</button>
+                        </div>
+                      )}
+                      <span>{pct}%</span>
+                    </div>
                   </div>
                   <div
                     className="goal__bar"
-                    onClick={(e) => {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      const pct = Math.round(((e.clientX - rect.left) / rect.width) * 100);
-                      setGoals(goals.map(x => x.id === g.id ? { ...x, progress: pct } : x));
-                    }}
+                    onClick={(e) => { const rect = e.currentTarget.getBoundingClientRect(); setFromBar(Math.round(((e.clientX - rect.left) / rect.width) * 100)); }}
                     style={{ cursor: 'pointer' }}
-                    title="Click to set progress"
+                    title={metric ? `Click to set — ${metric.done} of ${metric.total}` : 'Click to set progress'}
                   >
-                    <div className="goal__fill" style={{ width: `${g.progress}%` }} />
+                    <div className="goal__fill" style={{ width: `${pct}%` }} />
                   </div>
                   <div className="goal__meta">
                     <span>{g.unit}</span>
