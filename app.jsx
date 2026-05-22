@@ -138,12 +138,11 @@ function GistSyncSection() {
 
   if (!token) return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <p style={{ fontSize: 11.5, color: 'var(--fg-muted)', margin: 0, lineHeight: 1.6 }}>
-        Paste a GitHub token with <strong>gist</strong> scope to enable cross-device sync.{' '}
-        <a href="https://github.com/settings/tokens/new?scopes=gist&description=Daybook+Sync" target="_blank" rel="noopener" style={{ color: 'var(--ssm-eminence)' }}>Create one ↗</a>
+      <p style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--fg-primary)', margin: 0 }}>
+        Enter your GitHub token
       </p>
       <input
-        type="password"
+        type="text"
         value={tokenInput}
         onChange={e => setTokenInput(e.target.value)}
         onKeyDown={e => e.key === 'Enter' && saveToken()}
@@ -152,6 +151,10 @@ function GistSyncSection() {
       />
       {btn('Save token', saveToken, true)}
       {msg && <p style={{ fontSize: 11.5, margin: 0, color: 'var(--fg-success)' }}>{msg}</p>}
+      <p style={{ fontSize: 11, color: 'var(--fg-muted)', margin: 0 }}>
+        Don't have one?{' '}
+        <a href="https://github.com/settings/tokens/new?scopes=gist&description=Daybook+Sync" target="_blank" rel="noopener" style={{ color: 'var(--ssm-eminence)' }}>Create a token with gist scope ↗</a>
+      </p>
     </div>
   );
 
