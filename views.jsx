@@ -82,57 +82,110 @@ function WeeklyFocusModule() {
 // ============================================================
 // CURRENTLY READING
 // ============================================================
-function CurrentlyReadingModule() {
-  const [book, setBook] = useLocalState('dash.book.v1', {
-    title: 'Before the Coffee Gets Cold',
-    author: 'Toshikazu Kawaguchi',
-    status: 'reading',
-    pages: 213,
-    progress: 86
-  });
-  const STATUSES = [
+const READING_STATUSES = [
   { v: 'reading', l: 'Reading' },
   { v: 'paused', l: 'Paused' },
-  { v: 'completed', l: 'Completed' }];
+  { v: 'completed', l: 'Completed' },
+];
+
+function CurrentlyReadingModule() {
+  const [books, setBooks] = useLocalState('dash.books.v2', [
+    { id: 'book1', title: 'Before the Coffee Gets Cold', author: 'Toshikazu Kawaguchi', status: 'reading', format: 'print' },
+  ]);
+  const [editing, setEditing] = useState(null);
+  const [draft, setDraft] = useState({});
+
+  const startEdit = (b) => { setEditing(b.id); setDraft({ ...b }); };
+  const startAdd = () => {
+    const id = 'book' + Date.now();
+    setEditing(id);
+    setDraft({ id, title: '', author: '', status: 'reading', format: 'print' });
+  };
+  const saveEdit = () => {
+    if (!draft.title.trim()) { setEditing(null); return; }
+    const exists = books.find((b) => b.id === draft.id);
+    if (exists) { setBooks(books.map((b) => b.id === draft.id ? draft : b)); }
+    else { setBooks([...books, draft]); }
+    setEditing(null);
+  };
+  const deleteBook = (id) => { setBooks(books.filter((b) => b.id !== id)); setEditing(null); };
+
+  const active = books.filter((b) => b.status !== 'completed').length;
 
   return (
-    <Card cls="m-reading" title="Currently reading">
-      <div className="reading">
-        <div className="reading__cover">
-          <div className="reading__cover-inner">
-            <div className="reading__cover-spine"></div>
-            <div className="reading__cover-title">{book.title.split(' ').slice(0, 3).join(' ')}</div>
-            <div className="reading__cover-author">{book.author.split(' ').slice(-1)}</div>
-          </div>
-        </div>
-        <div className="reading__meta">
-          <input
-            className="reading__title"
-            value={book.title}
-            onChange={(e) => setBook({ ...book, title: e.target.value })} />
-          
-          <input
-            className="reading__author"
-            value={book.author}
-            onChange={(e) => setBook({ ...book, author: e.target.value })} />
-          
-          <div className="reading__status">
-            {STATUSES.map((s) =>
-            <button
-              key={s.v}
-              className={`reading__pill ${book.status === s.v ? 'is-active' : ''} reading__pill--${s.v}`}
-              onClick={() => setBook({ ...book, status: s.v })}>
-              
-                {book.status === s.v && '● '}
-                {s.l}
+    <Card
+      cls="m-reading"
+      title="Currently reading"
+      count={`${active} active`}
+      action={
+        <button
+          onClick={startAdd}
+          style={{ fontSize: 11, fontWeight: 700, color: 'var(--ssm-eminence)', letterSpacing: '0.04em' }}>
+          + Add
+        </button>
+      }>
+      {books.length === 0 && (
+        <div className="empty"><strong>Nothing added yet.</strong> Hit "+ Add" to log a book.</div>
+      )}
+      {books.map((book) => (
+        <div key={book.id} className="reading-book">
+          {editing === book.id ? (
+            <div className="reading-edit">
+              <input
+                className="reading-edit__title"
+                value={draft.title}
+                onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+                placeholder="Book title"
+                autoFocus />
+              <input
+                className="reading-edit__author"
+                value={draft.author}
+                onChange={(e) => setDraft({ ...draft, author: e.target.value })}
+                placeholder="Author" />
+              <div className="reading__status">
+                {READING_STATUSES.map((s) => (
+                  <button
+                    key={s.v}
+                    className={`reading__pill ${draft.status === s.v ? 'is-active' : ''} reading__pill--${s.v}`}
+                    onClick={() => setDraft({ ...draft, status: s.v })}>
+                    {draft.status === s.v && '● '}{s.l}
+                  </button>
+                ))}
+              </div>
+              <div className="reading-edit__foot">
+                <button className="btn btn--primary" style={{ padding: '5px 14px', fontSize: 11 }} onClick={saveEdit}>Save</button>
+                <button className="btn btn--ghost" style={{ padding: '5px 10px', fontSize: 11 }} onClick={() => setEditing(null)}>Cancel</button>
+                <button
+                  style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--fg-error)', fontWeight: 600 }}
+                  onClick={() => deleteBook(book.id)}>
+                  Delete
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="reading-row">
+              <div className="reading__cover reading__cover--sm">
+                <div className="reading__cover-inner">
+                  <div className="reading__cover-spine"></div>
+                  <div className="reading__cover-title">{book.title.split(' ').slice(0, 3).join(' ')}</div>
+                </div>
+              </div>
+              <div className="reading-row__body">
+                <div className="reading-row__title">{book.title || '(untitled)'}</div>
+                {book.author && <div className="reading-row__author">{book.author}</div>}
+                <span className={`reading__pill reading__pill--${book.status} is-active`}>
+                  ● {READING_STATUSES.find((s) => s.v === book.status)?.l}
+                </span>
+              </div>
+              <button className="icon-btn reading-row__edit" onClick={() => startEdit(book)} aria-label="edit" title="Edit">
+                <Icon name="write" style={{ width: 13, height: 13 }} />
               </button>
-            )}
-          </div>
-          <p className="reading__note">Marking complete will log it to your quarter.</p>
+            </div>
+          )}
         </div>
-      </div>
-    </Card>);
-
+      ))}
+    </Card>
+  );
 }
 
 // ============================================================
