@@ -139,10 +139,17 @@ const loadCachedToken = () => {
     const raw = localStorage.getItem(TOKEN_KEY);
     if (!raw) return null;
     const { token, exp } = JSON.parse(raw);
-    // keep a 60s safety margin so we don't use a token right at the edge
     if (!token || !exp || Date.now() > exp - 60000) return null;
     return token;
   } catch { return null; }
+};
+const tokenMsRemaining = () => {
+  try {
+    const raw = localStorage.getItem(TOKEN_KEY);
+    if (!raw) return 0;
+    const { exp } = JSON.parse(raw);
+    return Math.max(0, exp - Date.now());
+  } catch { return 0; }
 };
 const saveCachedToken = (token) => {
   try { localStorage.setItem(TOKEN_KEY, JSON.stringify({ token, exp: Date.now() + 55 * 60 * 1000 })); } catch {}
@@ -163,6 +170,33 @@ const gcalStore = (() => {
   const get  = () => ({...state});
   const subscribe = (fn) => { listeners.add(fn); return () => listeners.delete(fn); };
 
+  let refreshTimer = null;
+
+  // Silently request a new token without showing a popup.
+  // On success → doFetch to refresh data with the new token.
+  // On failure → do nothing; the user still has a working token until it expires.
+  const silentRefresh = () => {
+    if (!GCAL_CLIENT_ID || !window.google?.accounts?.oauth2) return;
+    if (state.status !== 'ready') return;
+    const client = google.accounts.oauth2.initTokenClient({
+      client_id: GCAL_CLIENT_ID, scope: SCOPES,
+      callback: (resp) => {
+        if (resp.error) return; // fail silently — still have a valid token for now
+        doFetch(resp.access_token, state.calendarList, state.selectedIds);
+      },
+    });
+    client.requestAccessToken({ prompt: '' });
+  };
+
+  // Schedule a proactive refresh at 50 min so the token never visibly expires.
+  const scheduleRefresh = () => {
+    if (refreshTimer) clearTimeout(refreshTimer);
+    const ms = tokenMsRemaining();
+    // Refresh 5 min before expiry, but at least 1 min from now
+    const delay = Math.max(60000, ms - 5 * 60 * 1000);
+    refreshTimer = setTimeout(silentRefresh, delay);
+  };
+
   const doFetch = async (token, calendarList, selectedIds) => {
     try {
       const cals = calendarList || await fetchCalendarList(token);
@@ -175,11 +209,12 @@ const gcalStore = (() => {
       saveCachedToken(token);
       localStorage.setItem(AUTO_KEY, '1');
       set({ status: 'ready', token, calendarList: cals, events, weekEvents, upcomingEvents, financeData });
+      scheduleRefresh();
     } catch (e) {
       if (e.code === 401) {
         clearCachedToken();
         set({ status: 'idle', token: null, events: null, weekEvents: null, upcomingEvents: null, financeData: null, calendarList: null });
-        connect(true); // token expired — try silent re-auth, fall back to Connect button
+        connect(true);
       } else { set({ status: 'error', error: e.message }); }
     }
   };
@@ -214,6 +249,7 @@ const gcalStore = (() => {
   };
 
   const disconnect = () => {
+    if (refreshTimer) clearTimeout(refreshTimer);
     if (state.token && window.google?.accounts?.oauth2) google.accounts.oauth2.revoke(state.token, ()=>{});
     clearCachedToken();
     localStorage.removeItem(AUTO_KEY);
@@ -225,6 +261,21 @@ const gcalStore = (() => {
 
   return { get, subscribe, connect, refresh, disconnect, toggleCalendar };
 })();
+
+// When the page comes back to the foreground (e.g. returning to mobile tab),
+// check if the cached token expired while in the background and re-auth silently.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) return;
+  if (gcalStore.get().status !== 'ready') return;
+  if (!loadCachedToken()) {
+    // Token expired while we were away — try silent re-auth immediately
+    const tryRefresh = (n) => {
+      if (window.google?.accounts?.oauth2) { gcalStore.connect(true); }
+      else if (n < 15) { setTimeout(() => tryRefresh(n + 1), 200); }
+    };
+    tryRefresh(0);
+  }
+});
 
 // If no cached token but user was previously connected, try silent OAuth re-auth.
 // Polls until the GIS script (loaded async) is ready.
