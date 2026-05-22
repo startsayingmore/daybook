@@ -289,8 +289,82 @@ function Dashboard() {
         </TweakSection>
         <TweakSection label="Data">
           <p style={{ fontSize: 11.5, color: 'var(--fg-muted)', margin: 0, lineHeight: 1.55 }}>
-            All views' data lives in your browser's localStorage. Clear it any time below.
+            All views' data lives in your browser's localStorage. Export it to transfer to another device, or import a previously saved backup.
           </p>
+
+          {/* Export */}
+          <button
+            onClick={() => {
+              const data = {};
+              Object.keys(localStorage)
+                .filter(k => k.startsWith('dash.'))
+                .forEach(k => { try { data[k] = JSON.parse(localStorage.getItem(k)); } catch { data[k] = localStorage.getItem(k); } });
+              const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `daybook-backup-${new Date().toISOString().slice(0, 10)}.json`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+            style={{
+              marginTop: 10,
+              padding: '8px 12px',
+              fontSize: 11.5,
+              fontWeight: 600,
+              letterSpacing: '0.04em',
+              borderRadius: 8,
+              background: 'var(--ssm-eminence-tint)',
+              color: 'var(--ssm-eminence)',
+              border: '1px solid rgba(111, 63, 142, 0.2)',
+              cursor: 'pointer',
+              width: '100%',
+            }}
+          >
+            Export data
+          </button>
+
+          {/* Import */}
+          <button
+            onClick={() => {
+              const input = document.createElement('input');
+              input.type = 'file';
+              input.accept = '.json';
+              input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                  try {
+                    const data = JSON.parse(ev.target.result);
+                    const keys = Object.keys(data).filter(k => k.startsWith('dash.'));
+                    if (!keys.length) { alert('No Daybook data found in this file.'); return; }
+                    if (!confirm(`Import ${keys.length} data keys? This will overwrite your current data.`)) return;
+                    keys.forEach(k => localStorage.setItem(k, JSON.stringify(data[k])));
+                    location.reload();
+                  } catch { alert('Could not read file — make sure it is a valid Daybook export.'); }
+                };
+                reader.readAsText(file);
+              };
+              input.click();
+            }}
+            style={{
+              marginTop: 6,
+              padding: '8px 12px',
+              fontSize: 11.5,
+              fontWeight: 600,
+              letterSpacing: '0.04em',
+              borderRadius: 8,
+              background: 'var(--bg-raised)',
+              color: 'var(--fg-secondary)',
+              border: '1px solid var(--border-default)',
+              cursor: 'pointer',
+              width: '100%',
+            }}
+          >
+            Import data
+          </button>
+
           <button
             onClick={() => {
               if (!confirm('Reset all dashboard data? This cannot be undone.')) return;
