@@ -1038,58 +1038,122 @@ function BucketListModule() {
 }
 
 // ============================================================
-// GCAL WEEK — real Google Calendar week view (Mon–Sun)
-// Falls back to WeekEventsModule when not connected
+// UPCOMING EVENTS — curated significant dates (birthdays, trips, etc.)
 // ============================================================
-const GCAL_DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const EVENT_TAGS = [
+  { v: 'birthday', l: 'Birthday', e: '🎂' },
+  { v: 'trip',     l: 'Trip',     e: '✈️' },
+  { v: 'event',    l: 'Event',    e: '🎉' },
+  { v: 'work',     l: 'Work',     e: '💼' },
+  { v: 'personal', l: 'Personal', e: '💜' },
+  { v: 'other',    l: 'Other',    e: '📅' },
+];
+const tagEmoji = (v) => (EVENT_TAGS.find((t) => t.v === v) || EVENT_TAGS[5]).e;
+const tagLabel = (v) => (EVENT_TAGS.find((t) => t.v === v) || EVENT_TAGS[5]).l;
 
-function GcalWeekModule() {
-  const cal = useCalendar();
+function UpcomingEventsModule() {
+  const [events, setEvents] = useLocalState('dash.upcoming.v1', [
+    { id: 'ue1', title: "Mom's birthday", date: '2026-06-14', tag: 'birthday' },
+    { id: 'ue2', title: 'SSM grant deadline', date: '2026-06-30', tag: 'work' },
+    { id: 'ue3', title: 'Dallas girls trip', date: '2026-07-04', tag: 'trip' },
+  ]);
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState({ title: '', date: '', tag: 'event' });
 
-  if (cal.status !== 'ready') return <WeekEventsModule />;
+  const today = todayISO();
 
-  const todayStr = todayISO();
-  const week = weekDates();
-  const byDate = {};
-  (cal.weekEvents || []).forEach((e) => {
-    if (!byDate[e.date]) byDate[e.date] = [];
-    byDate[e.date].push(e);
-  });
-  const totalCount = (cal.weekEvents || []).length;
-
-  const fmtTime = (mins) => {
-    const h = Math.floor(mins / 60);
-    const m = mins % 60;
-    const ampm = h >= 12 ? 'PM' : 'AM';
-    const h12 = h % 12 || 12;
-    return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
+  const daysUntil = (iso) => {
+    const diff = (new Date(iso + 'T12:00:00') - new Date(today + 'T12:00:00')) / 86400000;
+    return Math.round(diff);
   };
 
+  const sorted = [...events].sort((a, b) => {
+    const da = daysUntil(a.date), db = daysUntil(b.date);
+    // upcoming first (ascending), then past (least negative first)
+    const pastA = da < 0, pastB = db < 0;
+    if (pastA !== pastB) return pastA ? 1 : -1;
+    return da - db;
+  });
+
+  const addEvent = () => {
+    if (!draft.title.trim() || !draft.date) return;
+    setEvents([...events, { id: 'ue' + Date.now(), ...draft, title: draft.title.trim() }]);
+    setDraft({ title: '', date: '', tag: 'event' });
+    setAdding(false);
+  };
+
+  const remove = (id) => setEvents(events.filter((e) => e.id !== id));
+
+  const dayLabel = (n) => {
+    if (n === 0) return { text: 'Today', cls: 'is-today' };
+    if (n === 1) return { text: 'Tomorrow', cls: 'is-soon' };
+    if (n > 0 && n <= 7) return { text: `In ${n} days`, cls: 'is-soon' };
+    if (n > 0) return { text: `In ${n} days`, cls: '' };
+    return { text: `${Math.abs(n)}d ago`, cls: 'is-past' };
+  };
+
+  const upcoming = sorted.filter((e) => daysUntil(e.date) >= 0).length;
+
   return (
-    <Card cls="m-events" title="Events this week" count={`${totalCount}`}>
-      <div className="gcal-week">
-        {week.map((iso, i) => {
-          const isToday = iso === todayStr;
-          const dayEvents = byDate[iso] || [];
-          const dayNum = new Date(iso + 'T12:00:00').getDate();
+    <Card
+      cls="m-events"
+      title="Upcoming"
+      count={`${upcoming} ahead`}
+      action={
+        <button
+          onClick={() => setAdding((s) => !s)}
+          style={{ fontSize: 11, fontWeight: 700, color: 'var(--ssm-eminence)', letterSpacing: '0.04em' }}>
+          {adding ? 'Cancel' : '+ Add'}
+        </button>
+      }>
+      {adding && (
+        <div className="ue-add">
+          <input
+            className="ue-add__title"
+            value={draft.title}
+            onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+            placeholder="Event name"
+            autoFocus />
+          <input
+            type="date"
+            className="ue-add__date"
+            value={draft.date}
+            onChange={(e) => setDraft({ ...draft, date: e.target.value })} />
+          <div className="ue-add__tags">
+            {EVENT_TAGS.map((t) => (
+              <button
+                key={t.v}
+                className={`ue-tag ${draft.tag === t.v ? 'is-active' : ''}`}
+                onClick={() => setDraft({ ...draft, tag: t.v })}>
+                {t.e} {t.l}
+              </button>
+            ))}
+          </div>
+          <button className="btn btn--primary" style={{ alignSelf: 'flex-start', padding: '6px 16px', fontSize: 11 }} onClick={addEvent}>
+            Save
+          </button>
+        </div>
+      )}
+      {sorted.length === 0 && !adding && (
+        <div className="empty"><strong>Nothing added yet.</strong> Hit "+ Add" to log a date.</div>
+      )}
+      <div className="ue-list">
+        {sorted.map((ev) => {
+          const n = daysUntil(ev.date);
+          const { text, cls } = dayLabel(n);
+          const d = new Date(ev.date + 'T12:00:00');
+          const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
           return (
-            <div key={iso} className={`gcal-day${isToday ? ' is-today' : ''}`}>
-              <div className="gcal-day__head">
-                <span className="gcal-day__name">{GCAL_DAY_NAMES[i]}</span>
-                <span className="gcal-day__num">{dayNum}</span>
+            <div key={ev.id} className={`ue-item ${cls}`}>
+              <span className="ue-item__emoji">{tagEmoji(ev.tag)}</span>
+              <div className="ue-item__body">
+                <span className="ue-item__title">{ev.title}</span>
+                <span className="ue-item__date">{dateStr} · {tagLabel(ev.tag)}</span>
               </div>
-              <div className="gcal-day__events">
-                {dayEvents.length === 0 && <span className="gcal-day__none">—</span>}
-                {dayEvents.map((e) => (
-                  <a key={e.id} href={e.htmlLink || '#'} target="_blank" rel="noopener noreferrer" className="gcal-ev">
-                    <span className="gcal-ev__dot" style={{ background: e.calColor || 'var(--ssm-eminence)' }}></span>
-                    <span className="gcal-ev__body">
-                      <span className="gcal-ev__title">{e.title}</span>
-                      {!e.allDay && <span className="gcal-ev__time">{fmtTime(e.start)}</span>}
-                    </span>
-                  </a>
-                ))}
-              </div>
+              <span className={`ue-item__badge ${cls}`}>{text}</span>
+              <button className="task__delete" onClick={() => remove(ev.id)} aria-label="remove">
+                <Icon name="trash" />
+              </button>
             </div>
           );
         })}
@@ -1109,7 +1173,7 @@ function WeekView({ nowMinutes }) {
       <ScheduleModule nowMinutes={nowMinutes} />
       <HabitsModule />
       <CurrentlyReadingModule />
-      <GcalWeekModule />
+      <UpcomingEventsModule />
       <FinancesModule compact />
       <SocialModule />
       <LinksModule />
@@ -1168,7 +1232,7 @@ function BucketListView() {
 Object.assign(window, {
   WeekView, MonthView, QuarterView, YearView, HabitsView, BucketListView,
   // expose individual modules in case Tweaks or other code references them
-  WeeklyFocusModule, CurrentlyReadingModule, ReflectionModule, WeekEventsModule, GcalWeekModule,
+  WeeklyFocusModule, CurrentlyReadingModule, ReflectionModule, WeekEventsModule, UpcomingEventsModule,
   MonthCalendarModule, MonthlyReflectionModule,
   GymConsistencyModule, FinancesModule, QuarterlyGoalsModule, QuarterlyWinsModule, BooksReadModule, IdeaParkingLotModule,
   YearVisionModule, FocusBucketsModule,

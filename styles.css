@@ -2231,6 +2231,58 @@ input, textarea {
 .reading-edit__foot { display: flex; align-items: center; gap: 8px; }
 
 /* ============================================================
+   UPCOMING EVENTS MODULE
+   ============================================================ */
+.ue-add {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 10px 12px; background: var(--ssm-eminence-tint);
+  border-radius: 10px; margin-bottom: 10px;
+}
+.ue-add__title {
+  font-size: 13px; font-weight: 600; color: var(--fg-primary);
+  background: var(--ssm-paper); border: 1px solid var(--border-subtle);
+  border-radius: 6px; padding: 6px 10px; width: 100%;
+}
+.ue-add__date {
+  font-size: 12px; color: var(--fg-secondary);
+  background: var(--ssm-paper); border: 1px solid var(--border-subtle);
+  border-radius: 6px; padding: 5px 10px; width: 100%;
+}
+.ue-add__tags { display: flex; flex-wrap: wrap; gap: 5px; }
+.ue-tag {
+  font-size: 11px; font-weight: 600; padding: 3px 9px;
+  border-radius: 999px; border: 1.5px solid var(--border-subtle);
+  background: transparent; color: var(--fg-muted); cursor: pointer;
+  transition: all 0.12s;
+}
+.ue-tag.is-active {
+  border-color: var(--ssm-eminence); background: var(--ssm-eminence);
+  color: #fff;
+}
+
+.ue-list { display: flex; flex-direction: column; gap: 6px; }
+.ue-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: 8px;
+  background: var(--bg-card-alt, rgba(0,0,0,0.025));
+  transition: background 0.12s;
+}
+.ue-item:hover { background: var(--ssm-eminence-tint); }
+.ue-item.is-past { opacity: 0.5; }
+.ue-item__emoji { font-size: 18px; flex-shrink: 0; line-height: 1; }
+.ue-item__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ue-item__title { font-size: 12.5px; font-weight: 700; color: var(--fg-primary); }
+.ue-item__date { font-size: 11px; color: var(--fg-muted); font-weight: 500; }
+.ue-item__badge {
+  flex-shrink: 0; font-size: 10.5px; font-weight: 700;
+  padding: 2px 8px; border-radius: 999px;
+  background: var(--border-subtle); color: var(--fg-muted);
+  white-space: nowrap;
+}
+.ue-item__badge.is-today { background: var(--ssm-orange); color: #fff; }
+.ue-item__badge.is-soon { background: var(--ssm-eminence-tint); color: var(--ssm-eminence); }
+
+/* ============================================================
    GCAL WEEK MODULE — 7-column day grid
    ============================================================ */
 .gcal-week {

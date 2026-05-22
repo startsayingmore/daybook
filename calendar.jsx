@@ -75,6 +75,8 @@ async function fetchAllEvents(token, calendarList, selectedIds, timeMin, timeMax
 
 // ── Store ─────────────────────────────────────────────────────────────────────
 
+const AUTO_KEY = 'dash.gcal.wasConnected';
+
 const gcalStore = (() => {
   let state = { status: 'idle', events: null, weekEvents: null, calendarList: null, selectedIds: loadSelectedIds(), token: null, error: null };
   const listeners = new Set();
@@ -89,6 +91,7 @@ const gcalStore = (() => {
         fetchAllEvents(token, cals, selectedIds, todayMidnight(), todayEndOfDay()),
         fetchAllEvents(token, cals, selectedIds, weekMondayMidnight(), weekSundayEndOfDay()),
       ]);
+      localStorage.setItem(AUTO_KEY, '1');
       set({ status: 'ready', token, calendarList: cals, events, weekEvents });
     } catch (e) {
       if (e.code === 401) { set({ status: 'idle', token: null, events: null, weekEvents: null, calendarList: null }); connect(); }
@@ -96,18 +99,23 @@ const gcalStore = (() => {
     }
   };
 
-  const connect = () => {
+  // silent=true: no popup on failure, just fall back to 'idle' (shows Connect button)
+  const connect = (silent = false) => {
     if (!GCAL_CLIENT_ID) { set({ status: 'unconfigured' }); return; }
     if (!window.google?.accounts?.oauth2) { set({ status: 'no_gis' }); return; }
     set({ status: 'loading' });
     const client = google.accounts.oauth2.initTokenClient({
       client_id: GCAL_CLIENT_ID, scope: SCOPES,
       callback: (resp) => {
-        if (resp.error) { set({ status: 'error', error: resp.error }); return; }
+        if (resp.error) {
+          silent ? set({ status: 'idle' }) : set({ status: 'error', error: resp.error });
+          return;
+        }
         doFetch(resp.access_token, null, state.selectedIds);
       },
     });
-    client.requestAccessToken({ prompt: state.token ? '' : undefined });
+    // silent = no UI prompt; non-silent first connect = let Google decide
+    client.requestAccessToken({ prompt: silent ? '' : (state.token ? '' : undefined) });
   };
 
   const refresh = () => { if (!state.token) { connect(); return; } set({ status: 'loading' }); doFetch(state.token, state.calendarList, state.selectedIds); };
@@ -126,11 +134,23 @@ const gcalStore = (() => {
 
   const disconnect = () => {
     if (state.token && window.google?.accounts?.oauth2) google.accounts.oauth2.revoke(state.token, ()=>{});
+    localStorage.removeItem(AUTO_KEY);
     set({ status: 'idle', events: null, weekEvents: null, token: null, calendarList: null, error: null });
   };
 
   return { get, subscribe, connect, refresh, disconnect, toggleCalendar };
 })();
+
+// Auto-reconnect silently on page load if the user was previously connected.
+// Polls until GIS script finishes loading (it's async), then fires a no-prompt token request.
+if (localStorage.getItem(AUTO_KEY)) {
+  const tryAutoConnect = (attempts) => {
+    if (window.google?.accounts?.oauth2) { gcalStore.connect(true); }
+    else if (attempts < 30) { setTimeout(() => tryAutoConnect(attempts + 1), 200); }
+    else { gcalStore.connect(false); } // GIS never loaded — fall through to normal connect
+  };
+  tryAutoConnect(0);
+}
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
