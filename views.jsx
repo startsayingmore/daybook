@@ -669,7 +669,15 @@ function QuarterlyGoalsModule() {
                       <span className="task__title" style={{ cursor: 'pointer' }} onClick={() => startEdit(g)}>{g.text}</span>
                       {g.metric && <span style={{ display: 'block', fontSize: 11, color: 'var(--fg-muted)', marginTop: 1 }}>{g.metric}</span>}
                     </div>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ssm-eminence)', minWidth: 32, textAlign: 'right' }}>{pct}%</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {parsed && (
+                        <div className="goal__stepper">
+                          <button type="button" onClick={(e) => { e.stopPropagation(); setProgress(g.id, Math.round(Math.max(0, parsed.done - 1) / parsed.total * 100)); }} disabled={parsed.done <= 0} aria-label="Decrease">−</button>
+                          <button type="button" onClick={(e) => { e.stopPropagation(); setProgress(g.id, Math.round(Math.min(parsed.total, parsed.done + 1) / parsed.total * 100)); }} disabled={parsed.done >= parsed.total} aria-label="Increase">+</button>
+                        </div>
+                      )}
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ssm-eminence)', minWidth: 32, textAlign: 'right' }}>{pct}%</span>
+                    </div>
                   </div>
                   <div
                     className="goal__bar"
