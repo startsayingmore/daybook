@@ -4,6 +4,160 @@
 /* global TweaksPanel, useTweaks, TweakSection, TweakToggle, TweakText */
 const { useState, useEffect, useMemo } = React;
 
+// ============================================================
+// Gist sync helpers
+// ============================================================
+const GIST_FILE    = 'daybook.json';
+const GIST_ID_KEY  = 'dash.gist.id';
+const GIST_PULLED_KEY = 'dash.gist.lastPulledAt'; // timestamp of last successful pull
+const GIST_SESSION_KEY = 'dash.gist.autoPullDone'; // sessionStorage — prevent reload loops
+const GIST_EXCLUDE = new Set([GIST_ID_KEY, GIST_PULLED_KEY, 'dash.gcal.tokenCache']);
+
+const getGithubToken = () => ((window.DAYBOOK_CONFIG || {}).githubToken || '').trim();
+
+function gatherDashData() {
+  const out = {};
+  Object.keys(localStorage)
+    .filter(k => k.startsWith('dash.') && !GIST_EXCLUDE.has(k))
+    .forEach(k => { try { out[k] = JSON.parse(localStorage.getItem(k)); } catch { out[k] = localStorage.getItem(k); } });
+  return out;
+}
+function restoreDashData(data) {
+  Object.keys(data)
+    .filter(k => k.startsWith('dash.') && !GIST_EXCLUDE.has(k) && k !== '_syncedAt')
+    .forEach(k => localStorage.setItem(k, JSON.stringify(data[k])));
+}
+
+async function gistRequest(token, path, method = 'GET', body) {
+  const res = await fetch(`https://api.github.com/gists${path}`, {
+    method,
+    headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github+json', ...(body ? { 'Content-Type': 'application/json' } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || `GitHub ${res.status}`); }
+  return res.json();
+}
+
+async function gistFind(token) {
+  // Search first page of gists for one containing daybook.json
+  const gists = await gistRequest(token, '?per_page=100');
+  const found = gists.find(g => g.files?.[GIST_FILE]);
+  return found ? found.id : null;
+}
+
+async function gistCreate(token) {
+  const data = { ...gatherDashData(), _syncedAt: Date.now() };
+  const gist = await gistRequest(token, '', 'POST', {
+    description: 'Daybook sync', public: false,
+    files: { [GIST_FILE]: { content: JSON.stringify(data, null, 2) } },
+  });
+  return gist.id;
+}
+
+async function gistPush(token, gistId) {
+  const data = { ...gatherDashData(), _syncedAt: Date.now() };
+  await gistRequest(token, `/${gistId}`, 'PATCH', {
+    files: { [GIST_FILE]: { content: JSON.stringify(data, null, 2) } },
+  });
+  return data._syncedAt;
+}
+
+async function gistPull(token, gistId) {
+  const gist = await gistRequest(token, `/${gistId}`);
+  const content = gist.files?.[GIST_FILE]?.content;
+  if (!content) throw new Error('daybook.json not found in Gist');
+  return JSON.parse(content);
+}
+
+// ============================================================
+// GistSyncSection — rendered inside TweaksPanel
+// ============================================================
+function GistSyncSection() {
+  const token = getGithubToken();
+  const [gistId, setGistIdState] = useState(() => { try { return localStorage.getItem(GIST_ID_KEY) || ''; } catch { return ''; } });
+  const [phase, setPhase] = useState('idle'); // idle | working | done | error
+  const [msg, setMsg]     = useState('');
+
+  const saveId = (id) => { setGistIdState(id); try { localStorage.setItem(GIST_ID_KEY, id); } catch {} };
+
+  const run = async (fn) => {
+    setPhase('working'); setMsg('');
+    try { await fn(); setPhase('done'); }
+    catch (e) { setPhase('error'); setMsg(e.message); }
+  };
+
+  const push = () => run(async () => {
+    let id = gistId;
+    if (!id) { id = await gistFind(token) || await gistCreate(token); saveId(id); }
+    const ts = await gistPush(token, id);
+    try { localStorage.setItem(GIST_PULLED_KEY, String(ts)); } catch {}
+    setMsg(`Pushed at ${new Date(ts).toLocaleTimeString()}`);
+  });
+
+  const pull = () => run(async () => {
+    let id = gistId;
+    if (!id) { id = await gistFind(token); if (!id) throw new Error('No Gist found — push first from another device.'); saveId(id); }
+    const data = await gistPull(token, id);
+    restoreDashData(data);
+    if (data._syncedAt) try { localStorage.setItem(GIST_PULLED_KEY, String(data._syncedAt)); } catch {}
+    setMsg('Pulled. Reloading…');
+    setTimeout(() => location.reload(), 600);
+  });
+
+  const init = () => run(async () => {
+    const id = await gistCreate(token);
+    saveId(id);
+    setMsg('Gist created. Sync is live.');
+  });
+
+  if (!token) return (
+    <div>
+      <p style={{ fontSize: 11.5, color: 'var(--fg-muted)', margin: '0 0 8px', lineHeight: 1.6 }}>
+        Add a <code style={{ fontSize: 11 }}>githubToken</code> to <code style={{ fontSize: 11 }}>config.js</code> to enable cross-device sync via a private GitHub Gist.
+      </p>
+      <a
+        href="https://github.com/settings/tokens/new?scopes=gist&description=Daybook+Sync"
+        target="_blank" rel="noopener"
+        style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ssm-eminence)' }}>
+        Create GitHub token ↗
+      </a>
+    </div>
+  );
+
+  const busy = phase === 'working';
+  const btn = (label, onClick, primary) => (
+    <button
+      disabled={busy}
+      onClick={onClick}
+      style={{
+        padding: '8px 12px', fontSize: 11.5, fontWeight: 600, letterSpacing: '0.04em',
+        borderRadius: 8, cursor: busy ? 'default' : 'pointer', width: '100%',
+        opacity: busy ? 0.6 : 1,
+        background: primary ? 'var(--ssm-eminence-tint)' : 'var(--bg-raised)',
+        color: primary ? 'var(--ssm-eminence)' : 'var(--fg-secondary)',
+        border: primary ? '1px solid rgba(111,63,142,0.2)' : '1px solid var(--border-default)',
+      }}>
+      {busy ? 'Working…' : label}
+    </button>
+  );
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <p style={{ fontSize: 11, color: 'var(--fg-muted)', margin: 0 }}>
+        {gistId ? `Gist connected` : 'No Gist linked yet'}
+      </p>
+      {msg && (
+        <p style={{ fontSize: 11.5, margin: 0, color: phase === 'error' ? 'var(--fg-error)' : phase === 'done' ? 'var(--fg-success)' : 'var(--fg-muted)' }}>
+          {msg}
+        </p>
+      )}
+      {btn('Push to Gist', push, true)}
+      {btn('Pull from Gist', pull, false)}
+      {!gistId && btn('Initialize Gist', init, false)}
+    </div>
+  );
+}
+
 const DASH_DEFAULTS = /*EDITMODE-BEGIN*/{
   "name": "Lamide",
   "accentOnGreeting": true,
@@ -186,6 +340,46 @@ function Dashboard() {
       setNowMinutes(n.getHours() * 60 + n.getMinutes());
     }, 30000);
     return () => clearInterval(id);
+  }, []);
+
+  // Gist: auto-pull once per session if remote is newer, auto-push on page hide
+  useEffect(() => {
+    const token = getGithubToken();
+    if (!token) return;
+
+    // Auto-pull — once per browser session to avoid reload loops
+    const alreadyPulled = sessionStorage.getItem(GIST_SESSION_KEY);
+    if (!alreadyPulled) {
+      sessionStorage.setItem(GIST_SESSION_KEY, '1');
+      (async () => {
+        try {
+          let id = localStorage.getItem(GIST_ID_KEY);
+          if (!id) { id = await gistFind(token); if (id) localStorage.setItem(GIST_ID_KEY, id); }
+          if (!id) return;
+          const remote = await gistPull(token, id);
+          const lastPulled = parseInt(localStorage.getItem(GIST_PULLED_KEY) || '0', 10);
+          if (remote._syncedAt && remote._syncedAt > lastPulled) {
+            restoreDashData(remote);
+            localStorage.setItem(GIST_PULLED_KEY, String(remote._syncedAt));
+            location.reload();
+          }
+        } catch (e) { console.warn('[Gist] Auto-pull failed:', e.message); }
+      })();
+    }
+
+    // Auto-push on tab hide / close
+    const onHide = () => {
+      const id = localStorage.getItem(GIST_ID_KEY);
+      if (!id) return;
+      gistPush(token, id).catch(() => {});
+    };
+    const onVisibility = () => { if (document.hidden) onHide(); };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pagehide', onHide);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pagehide', onHide);
+    };
   }, []);
 
   // counts for sidebar badges + header stats
@@ -389,6 +583,10 @@ function Dashboard() {
           >
             Reset all data
           </button>
+        </TweakSection>
+
+        <TweakSection label="Sync">
+          <GistSyncSection />
         </TweakSection>
       </TweaksPanel>
     </div>
