@@ -1406,7 +1406,18 @@ function NetWorthDonutModule() {
     );
   }
 
-  const assets = fd.assetBreakdown;
+  // Merge Cash & Banking + Savings Goals into one segment
+  const mergedAssets = (fd.assetBreakdown || []).reduce((acc, a) => {
+    const isCash    = /cash|banking/i.test(a.name);
+    const isSavings = /savings/i.test(a.name);
+    const key = (isCash || isSavings) ? 'Cash & Savings' : a.name;
+    const existing = acc.find(x => x.name === key);
+    if (existing) { existing.value += a.value; }
+    else { acc.push({ name: key, value: a.value }); }
+    return acc;
+  }, []);
+
+  const assets = mergedAssets;
   const totalAssets = assets.reduce((s, a) => s + a.value, 0);
   const totalDebts  = parseAmt(fd.totalDebts);
   const netWorth    = parseAmt(fd.netWorth);
