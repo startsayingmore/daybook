@@ -1268,8 +1268,7 @@ input, textarea {
 .grid--single { grid-template-columns: 1fr; }
 
 /* Finance view */
-.grid--finance { grid-template-columns: 1fr 1fr; align-items: start; }
-.grid--finance .m-fin-budget { grid-column: 1 / -1; }
+.grid--finance { grid-template-columns: 1fr; align-items: start; }
 
 /* Donut chart */
 .fin-donut-wrap { display: flex; align-items: center; gap: 24px; }

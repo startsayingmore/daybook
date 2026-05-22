@@ -131,18 +131,32 @@ async function fetchAllEvents(token, calendarList, selectedIds, timeMin, timeMax
 
 // ── Store ─────────────────────────────────────────────────────────────────────
 
-const AUTO_KEY    = 'dash.gcal.wasConnected';
-const SESSION_KEY = 'dash.gcal.token';
+const AUTO_KEY  = 'dash.gcal.wasConnected';
+const TOKEN_KEY = 'dash.gcal.tokenCache'; // { token, exp } — localStorage, survives tab close
+
+const loadCachedToken = () => {
+  try {
+    const raw = localStorage.getItem(TOKEN_KEY);
+    if (!raw) return null;
+    const { token, exp } = JSON.parse(raw);
+    // keep a 60s safety margin so we don't use a token right at the edge
+    if (!token || !exp || Date.now() > exp - 60000) return null;
+    return token;
+  } catch { return null; }
+};
+const saveCachedToken = (token) => {
+  try { localStorage.setItem(TOKEN_KEY, JSON.stringify({ token, exp: Date.now() + 55 * 60 * 1000 })); } catch {}
+};
+const clearCachedToken = () => { try { localStorage.removeItem(TOKEN_KEY); } catch {} };
 
 const gcalStore = (() => {
-  // Reuse token from sessionStorage — survives page refresh within the same browser tab.
-  const sessionToken = (() => { try { return sessionStorage.getItem(SESSION_KEY); } catch { return null; } })();
+  const cachedToken = loadCachedToken();
 
   let state = {
-    status: sessionToken ? 'loading' : 'idle',
+    status: cachedToken ? 'loading' : 'idle',
     events: null, weekEvents: null, upcomingEvents: null, financeData: null,
     calendarList: null, selectedIds: loadSelectedIds(),
-    token: sessionToken || null, error: null,
+    token: cachedToken || null, error: null,
   };
   const listeners = new Set();
   const set  = (patch) => { state = {...state,...patch}; listeners.forEach(fn=>fn({...state})); };
@@ -158,12 +172,12 @@ const gcalStore = (() => {
         fetchAllEvents(token, cals, selectedIds, todayMidnight(), upcoming60End()),
         fetchFinanceData(token, FINANCE_SHEET_ID),
       ]);
-      try { sessionStorage.setItem(SESSION_KEY, token); } catch {}
+      saveCachedToken(token);
       localStorage.setItem(AUTO_KEY, '1');
       set({ status: 'ready', token, calendarList: cals, events, weekEvents, upcomingEvents, financeData });
     } catch (e) {
       if (e.code === 401) {
-        try { sessionStorage.removeItem(SESSION_KEY); } catch {}
+        clearCachedToken();
         set({ status: 'idle', token: null, events: null, weekEvents: null, upcomingEvents: null, financeData: null, calendarList: null });
         connect(true); // token expired — try silent re-auth, fall back to Connect button
       } else { set({ status: 'error', error: e.message }); }
@@ -201,20 +215,20 @@ const gcalStore = (() => {
 
   const disconnect = () => {
     if (state.token && window.google?.accounts?.oauth2) google.accounts.oauth2.revoke(state.token, ()=>{});
-    try { sessionStorage.removeItem(SESSION_KEY); } catch {}
+    clearCachedToken();
     localStorage.removeItem(AUTO_KEY);
     set({ status: 'idle', events: null, weekEvents: null, upcomingEvents: null, financeData: null, token: null, calendarList: null, error: null });
   };
 
-  // Kick off fetch immediately if we recovered a session token
-  if (sessionToken) { Promise.resolve().then(() => doFetch(sessionToken, null, state.selectedIds)); }
+  // Kick off fetch immediately if we recovered a cached token
+  if (cachedToken) { Promise.resolve().then(() => doFetch(cachedToken, null, state.selectedIds)); }
 
   return { get, subscribe, connect, refresh, disconnect, toggleCalendar };
 })();
 
-// If no session token but user was previously connected, try silent OAuth re-auth.
+// If no cached token but user was previously connected, try silent OAuth re-auth.
 // Polls until the GIS script (loaded async) is ready.
-if (!sessionStorage.getItem(SESSION_KEY) && localStorage.getItem(AUTO_KEY)) {
+if (!loadCachedToken() && localStorage.getItem(AUTO_KEY)) {
   const tryAutoConnect = (n) => {
     if (window.google?.accounts?.oauth2) { gcalStore.connect(true); }
     else if (n < 30) { setTimeout(() => tryAutoConnect(n + 1), 200); }

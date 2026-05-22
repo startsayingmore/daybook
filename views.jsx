@@ -1349,7 +1349,6 @@ function QuarterView() {
   return (
     <div className="grid grid--quarter">
       <GymConsistencyModule />
-      <FinancesModule />
       <QuarterlyGoalsModule />
       <QuarterlyWinsModule />
       <BooksReadModule />
@@ -1413,7 +1412,7 @@ function NetWorthDonutModule() {
   const netWorth    = parseAmt(fd.netWorth);
 
   // SVG donut — assets as coloured segments, debts as a single red segment
-  const SIZE = 160, CX = SIZE / 2, CY = SIZE / 2, R = 58, STROKE = 22;
+  const SIZE = 220, CX = SIZE / 2, CY = SIZE / 2, R = 80, STROKE = 28;
   const circ = 2 * Math.PI * R;
   const grandTotal = totalAssets + totalDebts;
   const allSegments = [
@@ -1448,8 +1447,8 @@ function NetWorthDonutModule() {
               style={{ transform: 'rotate(-90deg)', transformOrigin: `${CX}px ${CY}px`, transition: 'stroke-dasharray 0.6s ease' }}
             />
           ))}
-          <text x={CX} y={CY - 8} textAnchor="middle" style={{ fontSize: 11, fill: 'var(--fg-muted)', fontFamily: 'Poppins, sans-serif', fontWeight: 600 }}>Net worth</text>
-          <text x={CX} y={CY + 10} textAnchor="middle" style={{ fontSize: 15, fill: 'var(--ssm-eminence)', fontFamily: 'Poppins, sans-serif', fontWeight: 700 }}>{fd.netWorth}</text>
+          <text x={CX} y={CY - 10} textAnchor="middle" style={{ fontSize: 12, fill: 'var(--fg-muted)', fontFamily: 'Poppins, sans-serif', fontWeight: 600 }}>Net worth</text>
+          <text x={CX} y={CY + 14} textAnchor="middle" style={{ fontSize: 18, fill: 'var(--ssm-eminence)', fontFamily: 'Poppins, sans-serif', fontWeight: 700 }}>{fd.netWorth}</text>
         </svg>
         <div className="fin-donut-legend">
           {segments.map((s, i) => (
@@ -1517,6 +1516,7 @@ function BudgetBarsModule() {
 function FinanceView() {
   return (
     <div className="grid grid--finance">
+      <FinancesModule />
       <NetWorthDonutModule />
       <BudgetBarsModule />
     </div>
