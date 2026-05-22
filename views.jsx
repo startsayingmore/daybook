@@ -1052,7 +1052,9 @@ const tagEmoji = (v) => (EVENT_TAGS.find((t) => t.v === v) || EVENT_TAGS[5]).e;
 const tagLabel = (v) => (EVENT_TAGS.find((t) => t.v === v) || EVENT_TAGS[5]).l;
 
 function UpcomingEventsModule() {
-  const [events, setEvents] = useLocalState('dash.upcoming.v1', [
+  const cal = useCalendar();
+  // Manual fallback list used when calendar is not connected
+  const [manualEvents, setManualEvents] = useLocalState('dash.upcoming.v1', [
     { id: 'ue1', title: "Mom's birthday", date: '2026-06-14', tag: 'birthday' },
     { id: 'ue2', title: 'SSM grant deadline', date: '2026-06-30', tag: 'work' },
     { id: 'ue3', title: 'Dallas girls trip', date: '2026-07-04', tag: 'trip' },
@@ -1061,44 +1063,85 @@ function UpcomingEventsModule() {
   const [draft, setDraft] = useState({ title: '', date: '', tag: 'event' });
 
   const today = todayISO();
+  const connected = cal.status === 'ready';
 
-  const daysUntil = (iso) => {
-    const diff = (new Date(iso + 'T12:00:00') - new Date(today + 'T12:00:00')) / 86400000;
-    return Math.round(diff);
-  };
-
-  const sorted = [...events].sort((a, b) => {
-    const da = daysUntil(a.date), db = daysUntil(b.date);
-    // upcoming first (ascending), then past (least negative first)
-    const pastA = da < 0, pastB = db < 0;
-    if (pastA !== pastB) return pastA ? 1 : -1;
-    return da - db;
-  });
-
-  const addEvent = () => {
-    if (!draft.title.trim() || !draft.date) return;
-    setEvents([...events, { id: 'ue' + Date.now(), ...draft, title: draft.title.trim() }]);
-    setDraft({ title: '', date: '', tag: 'event' });
-    setAdding(false);
-  };
-
-  const remove = (id) => setEvents(events.filter((e) => e.id !== id));
+  const daysUntil = (iso) => Math.round(
+    (new Date(iso + 'T12:00:00') - new Date(today + 'T12:00:00')) / 86400000
+  );
 
   const dayLabel = (n) => {
-    if (n === 0) return { text: 'Today', cls: 'is-today' };
+    if (n === 0) return { text: 'Today',    cls: 'is-today' };
     if (n === 1) return { text: 'Tomorrow', cls: 'is-soon' };
     if (n > 0 && n <= 7) return { text: `In ${n} days`, cls: 'is-soon' };
     if (n > 0) return { text: `In ${n} days`, cls: '' };
     return { text: `${Math.abs(n)}d ago`, cls: 'is-past' };
   };
 
-  const upcoming = sorted.filter((e) => daysUntil(e.date) >= 0).length;
+  // ── Calendar-fed list ──────────────────────────────────────
+  const calEvents = connected ? (cal.upcomingEvents || []) : [];
+  const calSorted = [...calEvents].sort((a, b) =>
+    a.date !== b.date ? a.date.localeCompare(b.date) : a.start - b.start
+  );
+  const calUpcoming = calSorted.filter((e) => daysUntil(e.date) >= 0).length;
 
+  // ── Manual list (fallback) ─────────────────────────────────
+  const manualSorted = [...manualEvents].sort((a, b) => {
+    const da = daysUntil(a.date), db = daysUntil(b.date);
+    if ((da < 0) !== (db < 0)) return da < 0 ? 1 : -1;
+    return da - db;
+  });
+
+  const addEvent = () => {
+    if (!draft.title.trim() || !draft.date) return;
+    setManualEvents([...manualEvents, { id: 'ue' + Date.now(), ...draft, title: draft.title.trim() }]);
+    setDraft({ title: '', date: '', tag: 'event' });
+    setAdding(false);
+  };
+  const remove = (id) => setManualEvents(manualEvents.filter((e) => e.id !== id));
+
+  const fmtTime = (mins) => {
+    const h = Math.floor(mins / 60), m = mins % 60;
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`;
+  };
+
+  // ── Connected view ─────────────────────────────────────────
+  if (connected) {
+    return (
+      <Card cls="m-events" title="Upcoming" count={`${calUpcoming} ahead`}>
+        {calSorted.length === 0 && (
+          <div className="empty"><strong>Nothing in the next 60 days.</strong></div>
+        )}
+        <div className="ue-list">
+          {calSorted.map((ev) => {
+            const n = daysUntil(ev.date);
+            const { text, cls } = dayLabel(n);
+            const d = new Date(ev.date + 'T12:00:00');
+            const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            return (
+              <div key={ev.id} className={`ue-item ${cls}`}>
+                <span className="ue-item__dot" style={{ background: ev.calColor || 'var(--ssm-eminence)' }}></span>
+                <div className="ue-item__body">
+                  <span className="ue-item__title">{ev.title}</span>
+                  <span className="ue-item__date">
+                    {dateStr}{!ev.allDay ? ` · ${fmtTime(ev.start)}` : ''}
+                  </span>
+                </div>
+                <span className={`ue-item__badge ${cls}`}>{text}</span>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+    );
+  }
+
+  // ── Disconnected fallback — manual list + connect prompt ───
   return (
     <Card
       cls="m-events"
       title="Upcoming"
-      count={`${upcoming} ahead`}
+      count={`${manualSorted.filter((e) => daysUntil(e.date) >= 0).length} ahead`}
       action={
         <button
           onClick={() => setAdding((s) => !s)}
@@ -1106,39 +1149,26 @@ function UpcomingEventsModule() {
           {adding ? 'Cancel' : '+ Add'}
         </button>
       }>
+      <CalendarBanner cal={cal} />
       {adding && (
         <div className="ue-add">
-          <input
-            className="ue-add__title"
-            value={draft.title}
-            onChange={(e) => setDraft({ ...draft, title: e.target.value })}
-            placeholder="Event name"
-            autoFocus />
-          <input
-            type="date"
-            className="ue-add__date"
-            value={draft.date}
-            onChange={(e) => setDraft({ ...draft, date: e.target.value })} />
+          <input className="ue-add__title" value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} placeholder="Event name" autoFocus />
+          <input type="date" className="ue-add__date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} />
           <div className="ue-add__tags">
             {EVENT_TAGS.map((t) => (
-              <button
-                key={t.v}
-                className={`ue-tag ${draft.tag === t.v ? 'is-active' : ''}`}
-                onClick={() => setDraft({ ...draft, tag: t.v })}>
+              <button key={t.v} className={`ue-tag ${draft.tag === t.v ? 'is-active' : ''}`} onClick={() => setDraft({ ...draft, tag: t.v })}>
                 {t.e} {t.l}
               </button>
             ))}
           </div>
-          <button className="btn btn--primary" style={{ alignSelf: 'flex-start', padding: '6px 16px', fontSize: 11 }} onClick={addEvent}>
-            Save
-          </button>
+          <button className="btn btn--primary" style={{ alignSelf: 'flex-start', padding: '6px 16px', fontSize: 11 }} onClick={addEvent}>Save</button>
         </div>
       )}
-      {sorted.length === 0 && !adding && (
-        <div className="empty"><strong>Nothing added yet.</strong> Hit "+ Add" to log a date.</div>
+      {manualSorted.length === 0 && !adding && (
+        <div className="empty"><strong>Nothing added yet.</strong> Connect your calendar or hit "+ Add".</div>
       )}
       <div className="ue-list">
-        {sorted.map((ev) => {
+        {manualSorted.map((ev) => {
           const n = daysUntil(ev.date);
           const { text, cls } = dayLabel(n);
           const d = new Date(ev.date + 'T12:00:00');
@@ -1151,9 +1181,7 @@ function UpcomingEventsModule() {
                 <span className="ue-item__date">{dateStr} · {tagLabel(ev.tag)}</span>
               </div>
               <span className={`ue-item__badge ${cls}`}>{text}</span>
-              <button className="task__delete" onClick={() => remove(ev.id)} aria-label="remove">
-                <Icon name="trash" />
-              </button>
+              <button className="task__delete" onClick={() => remove(ev.id)} aria-label="remove"><Icon name="trash" /></button>
             </div>
           );
         })}

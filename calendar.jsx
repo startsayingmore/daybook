@@ -30,6 +30,7 @@ const weekMondayMidnight = () => {
 const weekSundayEndOfDay = () => {
   const d = new Date(); const dow = (d.getDay()+6)%7; d.setDate(d.getDate()-dow+6); d.setHours(23,59,59,999); return toLocalISO(d);
 };
+const upcoming60End = () => { const d = new Date(); d.setDate(d.getDate()+60); d.setHours(23,59,59,999); return toLocalISO(d); };
 
 const minsFromMidnight = (isoStr) => { const d = new Date(isoStr); return d.getHours()*60+d.getMinutes(); };
 
@@ -78,7 +79,7 @@ async function fetchAllEvents(token, calendarList, selectedIds, timeMin, timeMax
 const AUTO_KEY = 'dash.gcal.wasConnected';
 
 const gcalStore = (() => {
-  let state = { status: 'idle', events: null, weekEvents: null, calendarList: null, selectedIds: loadSelectedIds(), token: null, error: null };
+  let state = { status: 'idle', events: null, weekEvents: null, upcomingEvents: null, calendarList: null, selectedIds: loadSelectedIds(), token: null, error: null };
   const listeners = new Set();
   const set  = (patch) => { state = {...state,...patch}; listeners.forEach(fn=>fn({...state})); };
   const get  = () => ({...state});
@@ -87,14 +88,15 @@ const gcalStore = (() => {
   const doFetch = async (token, calendarList, selectedIds) => {
     try {
       const cals = calendarList || await fetchCalendarList(token);
-      const [events, weekEvents] = await Promise.all([
+      const [events, weekEvents, upcomingEvents] = await Promise.all([
         fetchAllEvents(token, cals, selectedIds, todayMidnight(), todayEndOfDay()),
         fetchAllEvents(token, cals, selectedIds, weekMondayMidnight(), weekSundayEndOfDay()),
+        fetchAllEvents(token, cals, selectedIds, todayMidnight(), upcoming60End()),
       ]);
       localStorage.setItem(AUTO_KEY, '1');
-      set({ status: 'ready', token, calendarList: cals, events, weekEvents });
+      set({ status: 'ready', token, calendarList: cals, events, weekEvents, upcomingEvents });
     } catch (e) {
-      if (e.code === 401) { set({ status: 'idle', token: null, events: null, weekEvents: null, calendarList: null }); connect(); }
+      if (e.code === 401) { set({ status: 'idle', token: null, events: null, weekEvents: null, upcomingEvents: null, calendarList: null }); connect(); }
       else { set({ status: 'error', error: e.message }); }
     }
   };
@@ -135,7 +137,7 @@ const gcalStore = (() => {
   const disconnect = () => {
     if (state.token && window.google?.accounts?.oauth2) google.accounts.oauth2.revoke(state.token, ()=>{});
     localStorage.removeItem(AUTO_KEY);
-    set({ status: 'idle', events: null, weekEvents: null, token: null, calendarList: null, error: null });
+    set({ status: 'idle', events: null, weekEvents: null, upcomingEvents: null, token: null, calendarList: null, error: null });
   };
 
   return { get, subscribe, connect, refresh, disconnect, toggleCalendar };

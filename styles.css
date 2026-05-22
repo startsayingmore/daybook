@@ -2270,6 +2270,7 @@ input, textarea {
 .ue-item:hover { background: var(--ssm-eminence-tint); }
 .ue-item.is-past { opacity: 0.5; }
 .ue-item__emoji { font-size: 18px; flex-shrink: 0; line-height: 1; }
+.ue-item__dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 2px; }
 .ue-item__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .ue-item__title { font-size: 12.5px; font-weight: 700; color: var(--fg-primary); }
 .ue-item__date { font-size: 11px; color: var(--fg-muted); font-weight: 500; }
