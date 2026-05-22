@@ -170,36 +170,37 @@ function TasksModule() {
           const status = taskStatus(t);
           const isEditing = editing === t.id;
           return (
-            <div key={t.id} className={`task task--${status} ${status === 'done' ? 'is-done' : ''}`}>
+            <div key={t.id} className={`task task--${status} ${status === 'done' ? 'is-done' : ''} ${isEditing ? 'is-editing' : ''}`}>
               {isEditing ? (
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, padding: '4px 0' }}>
+                <div className="task__edit">
                   <input
                     autoFocus
                     value={editDraft.title}
                     onChange={e => setEditDraft(d => ({ ...d, title: e.target.value }))}
                     onKeyDown={e => { if (e.key === 'Enter') saveEdit(t.id); if (e.key === 'Escape') setEditing(null); }}
-                    style={{ border: '1.5px solid var(--ssm-eminence)', borderRadius: 8, padding: '6px 10px', fontSize: 13, fontWeight: 500, outline: 'none', width: '100%', background: 'var(--ssm-paper)' }}
+                    className="task__edit-input"
                   />
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div className="task__edit-row">
                     <select
                       value={editDraft.tag}
                       onChange={e => setEditDraft(d => ({ ...d, tag: e.target.value }))}
-                      style={{ border: '1px solid var(--border-default)', borderRadius: 7, padding: '4px 8px', fontSize: 11, fontWeight: 700, color: TAG_COLOR[editDraft.tag], background: 'var(--ssm-paper)', outline: 'none', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.06em' }}
+                      style={{ color: TAG_COLOR[editDraft.tag] }}
+                      className="task__edit-select"
                     >
                       {Object.entries(TAG_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                     </select>
                     <select
                       value={editDraft.priority}
                       onChange={e => setEditDraft(d => ({ ...d, priority: e.target.value }))}
-                      style={{ border: '1px solid var(--border-default)', borderRadius: 7, padding: '4px 8px', fontSize: 11, fontWeight: 600, background: 'var(--ssm-paper)', outline: 'none', cursor: 'pointer', color: 'var(--fg-muted)' }}
+                      className="task__edit-select"
                     >
                       <option value="high">High</option>
                       <option value="mid">Medium</option>
                       <option value="low">Low</option>
                     </select>
-                    <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
-                      <button onClick={() => saveEdit(t.id)} style={{ fontSize: 11, fontWeight: 700, color: 'var(--ssm-eminence)', padding: '4px 10px', background: 'var(--ssm-eminence-tint)', borderRadius: 7 }}>Save</button>
-                      <button onClick={() => setEditing(null)} style={{ fontSize: 11, fontWeight: 600, color: 'var(--fg-muted)', padding: '4px 10px', background: 'var(--bg-page)', borderRadius: 7, border: '1px solid var(--border-subtle)' }}>Cancel</button>
+                    <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+                      <button onClick={() => saveEdit(t.id)} className="btn btn--primary" style={{ fontSize: 11, padding: '4px 12px' }}>Save</button>
+                      <button onClick={() => setEditing(null)} className="btn btn--ghost" style={{ fontSize: 11, padding: '4px 10px' }}>Cancel</button>
                       <button onClick={() => remove(t.id)} style={{ fontSize: 11, fontWeight: 600, color: 'var(--fg-error)', padding: '4px 10px', background: 'rgba(179,58,58,0.08)', borderRadius: 7 }}>Delete</button>
                     </div>
                   </div>
