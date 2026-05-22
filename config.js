@@ -18,21 +18,16 @@
 //
 // GITHUB GIST SYNC SETUP (cross-device sync):
 //
-// 1. Go to https://github.com/settings/tokens/new
-// 2. Note: "Daybook Sync", set Expiration to "No expiration" (or 1 year)
-// 3. Under Scopes, check only "gist"
-// 4. Click "Generate token" — copy the token (starts with ghp_...)
-// 5. Paste it in githubToken below, save, commit, and push.
+// No config needed here — enter your token directly in the app:
+// Settings → Sync → paste your ghp_... token → Save token
+// The token is stored in your browser only, never committed to the repo.
 //
-// On first use: open Settings → Sync → "Push to Gist" to create your Gist.
-// On a new device: open Settings → Sync → "Pull from Gist" to load your data.
-// Auto-sync: data is pushed automatically when you leave the page, and pulled
-// on load whenever the Gist has been updated from another device.
+// To create a token: github.com/settings/tokens/new
+//   Note: "Daybook Sync", Expiration: No expiration, Scope: gist only
 //
 // ============================================================
 
 window.DAYBOOK_CONFIG = {
   gcalClientId:  '886350660616-lgm5eps4s7veo5pp1mp962eb2hv8c0ep.apps.googleusercontent.com',
   financeSheetId: '1tcbIxX3e6O0YHfIicRRV-mvaYxlUqr82llbTMHZ2fNo',
-  githubToken:   '', // paste your ghp_... token here
 };

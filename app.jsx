@@ -13,7 +13,12 @@ const GIST_PULLED_KEY = 'dash.gist.lastPulledAt'; // timestamp of last successfu
 const GIST_SESSION_KEY = 'dash.gist.autoPullDone'; // sessionStorage — prevent reload loops
 const GIST_EXCLUDE = new Set([GIST_ID_KEY, GIST_PULLED_KEY, 'dash.gcal.tokenCache']);
 
-const getGithubToken = () => ((window.DAYBOOK_CONFIG || {}).githubToken || '').trim();
+// Token stored in localStorage under a non-dash key so it's never synced to Gist
+const GITHUB_TOKEN_KEY = 'daybook.githubToken';
+const getGithubToken = () => {
+  try { const t = localStorage.getItem(GITHUB_TOKEN_KEY); if (t) return t.trim(); } catch {}
+  return ((window.DAYBOOK_CONFIG || {}).githubToken || '').trim();
+};
 
 function gatherDashData() {
   const out = {};
@@ -73,12 +78,28 @@ async function gistPull(token, gistId) {
 // GistSyncSection — rendered inside TweaksPanel
 // ============================================================
 function GistSyncSection() {
-  const token = getGithubToken();
+  const [tokenInput, setTokenInput] = useState('');
+  const [token, setToken] = useState(getGithubToken);
   const [gistId, setGistIdState] = useState(() => { try { return localStorage.getItem(GIST_ID_KEY) || ''; } catch { return ''; } });
-  const [phase, setPhase] = useState('idle'); // idle | working | done | error
+  const [phase, setPhase] = useState('idle');
   const [msg, setMsg]     = useState('');
 
   const saveId = (id) => { setGistIdState(id); try { localStorage.setItem(GIST_ID_KEY, id); } catch {} };
+
+  const saveToken = () => {
+    const t = tokenInput.trim();
+    if (!t) return;
+    try { localStorage.setItem(GITHUB_TOKEN_KEY, t); } catch {}
+    setToken(t);
+    setTokenInput('');
+    setMsg('Token saved.');
+  };
+
+  const clearToken = () => {
+    try { localStorage.removeItem(GITHUB_TOKEN_KEY); } catch {}
+    setToken('');
+    setMsg('Token removed.');
+  };
 
   const run = async (fn) => {
     setPhase('working'); setMsg('');
@@ -104,56 +125,45 @@ function GistSyncSection() {
     setTimeout(() => location.reload(), 600);
   });
 
-  const init = () => run(async () => {
-    const id = await gistCreate(token);
-    saveId(id);
-    setMsg('Gist created. Sync is live.');
-  });
-
-  if (!token) return (
-    <div>
-      <p style={{ fontSize: 11.5, color: 'var(--fg-muted)', margin: '0 0 8px', lineHeight: 1.6 }}>
-        Add a <code style={{ fontSize: 11 }}>githubToken</code> to <code style={{ fontSize: 11 }}>config.js</code> to enable cross-device sync via a private GitHub Gist.
-      </p>
-      <a
-        href="https://github.com/settings/tokens/new?scopes=gist&description=Daybook+Sync"
-        target="_blank" rel="noopener"
-        style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ssm-eminence)' }}>
-        Create GitHub token ↗
-      </a>
-    </div>
-  );
-
   const busy = phase === 'working';
   const btn = (label, onClick, primary) => (
-    <button
-      disabled={busy}
-      onClick={onClick}
-      style={{
-        padding: '8px 12px', fontSize: 11.5, fontWeight: 600, letterSpacing: '0.04em',
-        borderRadius: 8, cursor: busy ? 'default' : 'pointer', width: '100%',
-        opacity: busy ? 0.6 : 1,
-        background: primary ? 'var(--ssm-eminence-tint)' : 'var(--bg-raised)',
-        color: primary ? 'var(--ssm-eminence)' : 'var(--fg-secondary)',
-        border: primary ? '1px solid rgba(111,63,142,0.2)' : '1px solid var(--border-default)',
-      }}>
-      {busy ? 'Working…' : label}
-    </button>
+    <button disabled={busy} onClick={onClick} style={{
+      padding: '8px 12px', fontSize: 11.5, fontWeight: 600, letterSpacing: '0.04em',
+      borderRadius: 8, cursor: busy ? 'default' : 'pointer', width: '100%', opacity: busy ? 0.6 : 1,
+      background: primary ? 'var(--ssm-eminence-tint)' : 'var(--bg-raised)',
+      color: primary ? 'var(--ssm-eminence)' : 'var(--fg-secondary)',
+      border: primary ? '1px solid rgba(111,63,142,0.2)' : '1px solid var(--border-default)',
+    }}>{busy ? 'Working…' : label}</button>
+  );
+
+  if (!token) return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <p style={{ fontSize: 11.5, color: 'var(--fg-muted)', margin: 0, lineHeight: 1.6 }}>
+        Paste a GitHub token with <strong>gist</strong> scope to enable cross-device sync.{' '}
+        <a href="https://github.com/settings/tokens/new?scopes=gist&description=Daybook+Sync" target="_blank" rel="noopener" style={{ color: 'var(--ssm-eminence)' }}>Create one ↗</a>
+      </p>
+      <input
+        type="password"
+        value={tokenInput}
+        onChange={e => setTokenInput(e.target.value)}
+        onKeyDown={e => e.key === 'Enter' && saveToken()}
+        placeholder="ghp_…"
+        style={{ padding: '7px 10px', fontSize: 12, borderRadius: 8, border: '1px solid var(--border-default)', background: 'var(--bg-raised)', color: 'var(--fg-primary)', fontFamily: 'monospace', outline: 'none', width: '100%', boxSizing: 'border-box' }}
+      />
+      {btn('Save token', saveToken, true)}
+      {msg && <p style={{ fontSize: 11.5, margin: 0, color: 'var(--fg-success)' }}>{msg}</p>}
+    </div>
   );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       <p style={{ fontSize: 11, color: 'var(--fg-muted)', margin: 0 }}>
-        {gistId ? `Gist connected` : 'No Gist linked yet'}
+        {gistId ? 'Gist connected · auto-pushes when you leave the page' : 'Token set — no Gist linked yet'}
       </p>
-      {msg && (
-        <p style={{ fontSize: 11.5, margin: 0, color: phase === 'error' ? 'var(--fg-error)' : phase === 'done' ? 'var(--fg-success)' : 'var(--fg-muted)' }}>
-          {msg}
-        </p>
-      )}
+      {msg && <p style={{ fontSize: 11.5, margin: 0, color: phase === 'error' ? 'var(--fg-error)' : 'var(--fg-success)' }}>{msg}</p>}
       {btn('Push to Gist', push, true)}
       {btn('Pull from Gist', pull, false)}
-      {!gistId && btn('Initialize Gist', init, false)}
+      <button onClick={clearToken} style={{ fontSize: 11, color: 'var(--fg-muted)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}>Remove token</button>
     </div>
   );
 }
