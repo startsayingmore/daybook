@@ -95,7 +95,7 @@ const VIEW_SUBLINES = {
   bucket:  'Goals — short, mid, and long-term.',
 };
 
-function TopBar({ name, nowMinutes, accentOnGreeting, activeView, onViewChange, openTasks, doneToday }) {
+function TopBar({ name, nowMinutes, accentOnGreeting, activeView, onViewChange, openTasks, doneToday, exerciseStreak }) {
   const now = new Date();
   const greeting = useMemo(() => {
     const h = now.getHours();
@@ -151,11 +151,11 @@ function TopBar({ name, nowMinutes, accentOnGreeting, activeView, onViewChange, 
           </div>
           <div className="meta-card">
             <span className="k">Focus</span>
-            <span className="v">{Math.max(0, openTasks - 2)}<span style={{ fontSize: 12, marginLeft: 4, opacity: 0.6 }}>left</span></span>
+            <span className="v">{openTasks}<span style={{ fontSize: 12, marginLeft: 4, opacity: 0.6 }}>open</span></span>
           </div>
           <div className="meta-card">
             <span className="k">Streak</span>
-            <span className="v">12<span style={{ fontSize: 12, marginLeft: 4, opacity: 0.6 }}>d</span></span>
+            <span className="v">{exerciseStreak}<span style={{ fontSize: 12, marginLeft: 4, opacity: 0.6 }}>d</span></span>
           </div>
         </div>
       </div>
@@ -192,16 +192,32 @@ function Dashboard() {
     return () => clearInterval(id);
   }, []);
 
-  // counts for sidebar badges
+  // counts for sidebar badges + header stats
   const counts = useMemo(() => {
-    const read = (k) => { try { return JSON.parse(localStorage.getItem(k) || '[]'); } catch { return []; } };
-    const tasks = read('dash.tasks.v1');
-    const habits = read('dash.habits.v1');
-    const today = todayISO();
+    const read = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k) || JSON.stringify(fallback)); } catch { return fallback; } };
+    const tasks  = read('dash.tasks.v1', []);
+    const habits = read('dash.habits.v1', []);
+    const cal    = read('dash.monthCal.v1', { trackedDays: {} });
+    const today  = todayISO();
+
+    // consecutive exercise days — counts back from today; if today isn't marked, counts from yesterday
+    const tracked = cal.trackedDays || {};
+    let streak = 0;
+    const d = new Date();
+    if (!tracked[today]) d.setDate(d.getDate() - 1); // start from yesterday if today not logged
+    for (let i = 0; i < 365; i++) {
+      const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      if (!tracked[iso]) break;
+      streak++;
+      d.setDate(d.getDate() - 1);
+    }
+
+    const taskStatus = (t) => t.status || (t.done ? 'done' : 'todo');
     return {
-      openTasks: tasks.filter(x => !x.done).length,
-      doneToday: tasks.filter(x => x.done).length,
+      openTasks:  tasks.filter(x => taskStatus(x) !== 'done').length,
+      doneToday:  tasks.filter(x => taskStatus(x) === 'done').length,
       habitCount: habits.filter(h => h.days?.[today]).length,
+      exerciseStreak: streak,
     };
   }, [nowMinutes, activeView]);
 
@@ -239,6 +255,7 @@ function Dashboard() {
           onViewChange={setActiveView}
           openTasks={counts.openTasks}
           doneToday={counts.doneToday}
+          exerciseStreak={counts.exerciseStreak}
         />
 
         <div key={activeView} className="view-wrap">
