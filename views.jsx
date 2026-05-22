@@ -1122,8 +1122,12 @@ function UpcomingEventsModule() {
     return { text: `${Math.abs(n)}d ago`, cls: 'is-past' };
   };
 
-  // ── Calendar-fed list — all-day events in the next 7 days only ──
-  const calEvents = connected ? (cal.upcomingEvents || []).filter((e) => e.allDay && daysUntil(e.date) >= 0 && daysUntil(e.date) <= 7) : [];
+  // ── Calendar-fed list — all-day events OR "Events and Plans" calendar, next 7 days ──
+  const isEventsAndPlans = (e) => (e.calName || '').toLowerCase().includes('events and plans');
+  const calEvents = connected ? (cal.upcomingEvents || []).filter((e) => {
+    const d = daysUntil(e.date);
+    return d >= 0 && d <= 7 && (e.allDay || isEventsAndPlans(e));
+  }) : [];
   const calSorted = [...calEvents].sort((a, b) => a.date.localeCompare(b.date));
   const calUpcoming = calSorted.filter((e) => daysUntil(e.date) >= 0).length;
 

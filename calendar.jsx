@@ -35,7 +35,7 @@ const upcoming60End = () => { const d = new Date(); d.setDate(d.getDate()+60); d
 
 const minsFromMidnight = (isoStr) => { const d = new Date(isoStr); return d.getHours()*60+d.getMinutes(); };
 
-const gEventToInternal = (e, calColor) => {
+const gEventToInternal = (e, calColor, calName = '') => {
   const isAllDay = !e.start.dateTime;
   const dateStr  = isAllDay ? e.start.date : e.start.dateTime.slice(0,10);
   const startMins = isAllDay ? 0 : minsFromMidnight(e.start.dateTime);
@@ -43,7 +43,7 @@ const gEventToInternal = (e, calColor) => {
   const location = e.location ? e.location.split(',')[0].trim() : '';
   const attendeeNames = (e.attendees||[]).filter(a=>!a.self).map(a=>a.displayName||a.email.split('@')[0]).slice(0,3).join(', ');
   const sub = [location, attendeeNames].filter(Boolean).join(' · ') || e.description?.replace(/<[^>]+>/g,'').slice(0,60) || '';
-  return { id: e.id, start: startMins, dur, date: dateStr, title: e.summary||'(No title)', sub, allDay: isAllDay, htmlLink: e.htmlLink, calColor };
+  return { id: e.id, start: startMins, dur, date: dateStr, title: e.summary||'(No title)', sub, allDay: isAllDay, htmlLink: e.htmlLink, calColor, calName };
 };
 
 const loadSelectedIds = () => { try { const r = localStorage.getItem(SELECTED_KEY); return r ? new Set(JSON.parse(r)) : null; } catch { return null; } };
@@ -94,15 +94,15 @@ async function fetchFinanceData(token, sheetId) {
   } catch (e) { console.warn('[Finance] fetch error:', e); return null; }
 }
 
-async function fetchEventsForCalendar(token, calId, calColor, timeMin, timeMax) {
+async function fetchEventsForCalendar(token, calId, calColor, calName, timeMin, timeMax) {
   const params = new URLSearchParams({ timeMin, timeMax, singleEvents: 'true', orderBy: 'startTime', maxResults: '50' });
   const data = await apiFetch(token, `/calendars/${encodeURIComponent(calId)}/events?${params}`);
-  return (data.items||[]).map(e => gEventToInternal(e, calColor));
+  return (data.items||[]).map(e => gEventToInternal(e, calColor, calName));
 }
 
 async function fetchAllEvents(token, calendarList, selectedIds, timeMin, timeMax) {
   const active = selectedIds ? calendarList.filter(c => selectedIds.has(c.id)) : calendarList;
-  const results = await Promise.all(active.map(c => fetchEventsForCalendar(token, c.id, c.color, timeMin, timeMax)));
+  const results = await Promise.all(active.map(c => fetchEventsForCalendar(token, c.id, c.color, c.name, timeMin, timeMax)));
   return results.flat().sort((a,b) => a.date !== b.date ? (a.date < b.date ? -1 : 1) : a.start - b.start);
 }
 
