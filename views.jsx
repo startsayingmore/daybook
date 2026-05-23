@@ -1386,6 +1386,7 @@ function BucketListView() {
 // ============================================================
 const DONUT_COLORS = ['#6F3F8E', '#E0904F', '#2F8F6E', '#5B8FD4', '#B5762A'];
 const DEBT_COLORS  = ['#C0392B', '#922B21'];
+const DEBT_COLOR   = DEBT_COLORS[0];
 
 function parseAmt(s) {
   if (!s) return 0;
@@ -1531,6 +1532,7 @@ function FinanceView() {
   return (
     <div className="grid grid--finance">
       <FinancesModule />
+      <NetWorthDonutModule />
       <BudgetBarsModule />
     </div>
   );
