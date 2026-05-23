@@ -360,14 +360,12 @@ function HabitsModule() {
   const week = weekDates();
   const todayI = todayISO();
 
-  // Weekly trend score
+  // Weekly trend score — use the same `week` array the streak dots render from
   const todayIdx  = week.indexOf(todayI);
   const elapsed   = todayIdx >= 0 ? todayIdx + 1 : 7;
-  const thisWeek  = weekDates(0).slice(0, elapsed);
-  const lastWeek  = weekDates(1).slice(0, elapsed);
-  const countDone = (dates) => habits.reduce((s, h) => s + dates.filter(d => h.days[d]).length, 0);
-  const scoreCur  = countDone(thisWeek);
-  const scorePrev = countDone(lastWeek);
+  const prevWeek  = weekDates(1);
+  const scoreCur  = habits.reduce((s, h) => s + week.slice(0, elapsed).filter(d => !!h.days?.[d]).length, 0);
+  const scorePrev = habits.reduce((s, h) => s + prevWeek.slice(0, elapsed).filter(d => !!h.days?.[d]).length, 0);
   const possible  = habits.length * elapsed;
   const trend     = scoreCur > scorePrev ? '↑' : scoreCur < scorePrev ? '↓' : '→';
   const trendClr  = scoreCur > scorePrev ? '#2F8F6E' : scoreCur < scorePrev ? '#C0392B' : 'var(--fg-muted)';
