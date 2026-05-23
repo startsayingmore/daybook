@@ -816,10 +816,7 @@ input, textarea {
   border-radius: 999px;
   background: var(--bg-page);
   overflow: hidden;
-  opacity: 0;
-  transition: opacity var(--dur-fast) var(--ease-out);
 }
-.goal:hover .goal__stepper { opacity: 1; }
 .goal__stepper button {
   width: 20px; height: 20px;
   font-size: 13px; font-weight: 700; line-height: 1;
