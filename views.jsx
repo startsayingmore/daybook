@@ -1531,7 +1531,6 @@ function FinanceView() {
   return (
     <div className="grid grid--finance">
       <FinancesModule />
-      <NetWorthDonutModule />
       <BudgetBarsModule />
     </div>
   );
