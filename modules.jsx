@@ -95,8 +95,9 @@ function TasksModule() {
   const [filter, setFilter] = useState('today');
   const [draft, setDraft] = useState('');
   const [draftTag, setDraftTag] = useState('work');
+  const [draftDate, setDraftDate] = useState('');
   const [editing, setEditing] = useState(null);
-  const [editDraft, setEditDraft] = useState({ title: '', tag: 'work', priority: 'mid' });
+  const [editDraft, setEditDraft] = useState({ title: '', tag: 'work', priority: 'mid', dueDate: '' });
 
   // Clear done tasks at the start of each new week
   useEffect(() => {
@@ -112,8 +113,9 @@ function TasksModule() {
     e?.preventDefault?.();
     const v = draft.trim();
     if (!v) return;
-    setTasks([{ id: 't' + Date.now(), title: v, status: 'todo', priority: 'mid', tag: draftTag }, ...tasks]);
+    setTasks([{ id: 't' + Date.now(), title: v, status: 'todo', priority: 'mid', tag: draftTag, dueDate: draftDate }, ...tasks]);
     setDraft('');
+    setDraftDate('');
   };
   const cycleStatus = (id) => setTasks(tasks.map(t => {
     if (t.id !== id) return t;
@@ -122,21 +124,26 @@ function TasksModule() {
     return { ...t, status: next, done: next === 'done' };
   }));
   const remove = (id) => { setTasks(tasks.filter(t => t.id !== id)); setEditing(null); };
-  const startEdit = (t) => { setEditing(t.id); setEditDraft({ title: t.title, tag: t.tag, priority: t.priority }); };
+  const startEdit = (t) => { setEditing(t.id); setEditDraft({ title: t.title, tag: t.tag, priority: t.priority, dueDate: t.dueDate || '' }); };
   const saveEdit = (id) => {
     if (!editDraft.title.trim()) return;
     setTasks(tasks.map(t => t.id === id ? { ...t, ...editDraft, title: editDraft.title.trim() } : t));
     setEditing(null);
   };
 
-  const visible = useMemo(() => {
-    if (filter === 'done') return tasks.filter(t => taskStatus(t) === 'done');
-    if (filter === 'open') return tasks.filter(t => taskStatus(t) !== 'done');
-    if (filter === 'doing') return tasks.filter(t => taskStatus(t) === 'doing');
-    return tasks;
-  }, [tasks, filter]);
+  const today = todayISO();
+  const isOverdue = (t) => t.dueDate && t.dueDate < today && taskStatus(t) !== 'done';
+  const overdueCount = tasks.filter(isOverdue).length;
 
-  const openCount = tasks.filter(t => taskStatus(t) !== 'done').length;
+  const visible = useMemo(() => {
+    if (filter === 'done')    return tasks.filter(t => taskStatus(t) === 'done');
+    if (filter === 'open')    return tasks.filter(t => taskStatus(t) !== 'done');
+    if (filter === 'doing')   return tasks.filter(t => taskStatus(t) === 'doing');
+    if (filter === 'overdue') return tasks.filter(isOverdue);
+    return tasks;
+  }, [tasks, filter, today]);
+
+  const openCount  = tasks.filter(t => taskStatus(t) !== 'done').length;
   const doingCount = tasks.filter(t => taskStatus(t) === 'doing').length;
 
   return (
@@ -150,9 +157,10 @@ function TasksModule() {
             ['today', 'All'],
             ['doing', `Doing${doingCount ? ` · ${doingCount}` : ''}`],
             ['open', 'Open'],
+            ['overdue', `Overdue${overdueCount ? ` · ${overdueCount}` : ''}`],
             ['done', 'Done'],
           ].map(([k, label]) => (
-            <button key={k} className={`pill ${filter === k ? 'is-active' : ''}`} onClick={() => setFilter(k)}>
+            <button key={k} className={`pill ${filter === k ? 'is-active' : ''}${k === 'overdue' && overdueCount ? ' pill--alert' : ''}`} onClick={() => setFilter(k)}>
               {label}
             </button>
           ))}
@@ -176,6 +184,13 @@ function TasksModule() {
             {Object.entries(TAG_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
         </span>
+        <input
+          type="date"
+          value={draftDate}
+          onChange={e => setDraftDate(e.target.value)}
+          style={{ border: 'none', background: 'transparent', fontSize: 11, color: 'var(--fg-muted)', outline: 'none', cursor: 'pointer', width: 120 }}
+          title="Optional due date"
+        />
         <button type="submit" className="submit">Add</button>
       </form>
 
@@ -199,7 +214,7 @@ function TasksModule() {
           const status = taskStatus(t);
           const isEditing = editing === t.id;
           return (
-            <div key={t.id} className={`task task--${status} ${status === 'done' ? 'is-done' : ''} ${isEditing ? 'is-editing' : ''}`}>
+            <div key={t.id} className={`task task--${status} ${status === 'done' ? 'is-done' : ''} ${isEditing ? 'is-editing' : ''} ${isOverdue(t) ? 'is-overdue' : ''}`}>
               {isEditing ? (
                 <div className="task__edit">
                   <input
@@ -227,6 +242,13 @@ function TasksModule() {
                       <option value="mid">Medium</option>
                       <option value="low">Low</option>
                     </select>
+                    <input
+                      type="date"
+                      value={editDraft.dueDate}
+                      onChange={e => setEditDraft(d => ({ ...d, dueDate: e.target.value }))}
+                      className="task__edit-select"
+                      title="Due date (optional)"
+                    />
                     <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
                       <button onClick={() => saveEdit(t.id)} className="btn btn--primary" style={{ fontSize: 11, padding: '4px 12px' }}>Save</button>
                       <button onClick={() => setEditing(null)} className="btn btn--ghost" style={{ fontSize: 11, padding: '4px 10px' }}>Cancel</button>
@@ -250,6 +272,11 @@ function TasksModule() {
                     <div className="task__meta">
                       <span className={`task__tag tag--${t.tag}`}>{TAG_LABEL[t.tag]}</span>
                       <span className={`task__status task__status--${status}`}>{STATUS_LABEL[status]}</span>
+                      {t.dueDate && (
+                        <span className={`task__due ${isOverdue(t) ? 'task__due--overdue' : ''}`}>
+                          {isOverdue(t) ? '⚠ ' : ''}Due {new Date(t.dueDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -274,15 +301,17 @@ function TasksModule() {
 const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 // Returns Mon..Sun ISO strings for current week
-const weekDates = () => {
+const isoDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+const weekDates = (offsetWeeks = 0) => {
   const now = new Date();
   const dow = (now.getDay() + 6) % 7; // 0 = Mon
   const monday = new Date(now);
-  monday.setDate(now.getDate() - dow);
+  monday.setDate(now.getDate() - dow - offsetWeeks * 7);
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return isoDate(d);
   });
 };
 
@@ -331,6 +360,18 @@ function HabitsModule() {
   const week = weekDates();
   const todayI = todayISO();
 
+  // Weekly trend score
+  const todayIdx  = week.indexOf(todayI);
+  const elapsed   = todayIdx >= 0 ? todayIdx + 1 : 7;
+  const thisWeek  = weekDates(0).slice(0, elapsed);
+  const lastWeek  = weekDates(1).slice(0, elapsed);
+  const countDone = (dates) => habits.reduce((s, h) => s + dates.filter(d => h.days[d]).length, 0);
+  const scoreCur  = countDone(thisWeek);
+  const scorePrev = countDone(lastWeek);
+  const possible  = habits.length * elapsed;
+  const trend     = scoreCur > scorePrev ? '↑' : scoreCur < scorePrev ? '↓' : '→';
+  const trendClr  = scoreCur > scorePrev ? '#2F8F6E' : scoreCur < scorePrev ? '#C0392B' : 'var(--fg-muted)';
+
   const toggleDay = (hid, iso) =>
     setHabits(habits.map(h => h.id === hid ? { ...h, days: { ...h.days, [iso]: !h.days[iso] } } : h));
 
@@ -354,7 +395,7 @@ function HabitsModule() {
     <Card
       cls="m-habits"
       title="Habits"
-      count="This week"
+      count={<span>{scoreCur}/{possible} this week <span style={{ color: trendClr, fontWeight: 700 }}>{trend}</span></span>}
       action={
         <button
           className="btn btn--ghost"

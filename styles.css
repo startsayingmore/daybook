@@ -538,6 +538,39 @@ input, textarea {
   letter-spacing: 0.03em;
 }
 
+/* Due date badge */
+.task__due {
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(111, 63, 142, 0.08);
+  color: var(--fg-muted);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.task__due--overdue {
+  background: rgba(192, 57, 43, 0.10);
+  color: var(--fg-error);
+}
+
+/* Overdue task row highlight */
+.task.is-overdue {
+  background: rgba(192, 57, 43, 0.03);
+}
+.task.is-overdue:hover {
+  background: rgba(192, 57, 43, 0.07);
+}
+
+/* Overdue filter pill */
+.pill--alert {
+  color: var(--fg-error) !important;
+}
+.pill--alert.is-active {
+  background: rgba(192, 57, 43, 0.10);
+  color: var(--fg-error);
+}
+
 .task-input {
   display: flex;
   align-items: center;
