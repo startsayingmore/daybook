@@ -510,6 +510,71 @@ const fmtTime = (mins) => {
   return { time: `${h12}:${String(m).padStart(2, '0')}`, ampm };
 };
 
+function QuickAddEventForm() {
+  const cal = useCalendar();
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState('');
+  const [date, setDate]   = useState(todayISO());
+  const [time, setTime]   = useState('09:00');
+  const [dur,  setDur]    = useState('60');
+  const [saving, setSaving] = useState(false);
+  const [err, setErr]     = useState('');
+
+  const submit = async () => {
+    if (!title.trim()) return;
+    setSaving(true);
+    setErr('');
+    try {
+      const [h, m] = time.split(':').map(Number);
+      await gcalStore.addEvent({ title: title.trim(), dateISO: date, startHour: h, startMin: m, durationMin: parseInt(dur, 10) });
+      setTitle(''); setDate(todayISO()); setTime('09:00'); setDur('60');
+      setOpen(false);
+    } catch (e) {
+      setErr(e.message || 'Failed to create event');
+    } finally { setSaving(false); }
+  };
+
+  if (cal.status !== 'ready') return null;
+
+  if (!open) {
+    return (
+      <button className="quick-add-btn" onClick={() => setOpen(true)}>
+        + Add to calendar
+      </button>
+    );
+  }
+
+  return (
+    <div className="quick-add-form">
+      <input
+        className="quick-add-form__title"
+        placeholder="Event title"
+        value={title}
+        onChange={e => setTitle(e.target.value)}
+        onKeyDown={e => e.key === 'Enter' && submit()}
+        autoFocus
+      />
+      <div className="quick-add-form__row">
+        <input type="date" value={date} onChange={e => setDate(e.target.value)} className="quick-add-form__field" />
+        <input type="time" value={time} onChange={e => setTime(e.target.value)} className="quick-add-form__field" />
+        <select value={dur} onChange={e => setDur(e.target.value)} className="quick-add-form__field">
+          <option value="30">30 min</option>
+          <option value="60">1 hr</option>
+          <option value="90">1.5 hr</option>
+          <option value="120">2 hr</option>
+        </select>
+      </div>
+      {err && <div className="quick-add-form__err">{err}</div>}
+      <div className="quick-add-form__row">
+        <button className="quick-add-form__save" onClick={submit} disabled={saving || !title.trim()}>
+          {saving ? 'Saving…' : 'Add'}
+        </button>
+        <button className="quick-add-form__cancel" onClick={() => { setOpen(false); setErr(''); }}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
 function ScheduleModule({ nowMinutes }) {
   const [manualEvents] = useLocalState('dash.events.v1', [
     { id: 'e1', start: 9 * 60,       dur: 60,  title: 'Morning planning',    sub: 'Solo · Inbox zero' },
@@ -569,6 +634,7 @@ function ScheduleModule({ nowMinutes }) {
           })}
         </div>
       )}
+      <QuickAddEventForm />
     </Card>
   );
 }

@@ -5,7 +5,7 @@ const { useState, useEffect } = React;
 
 const GCAL_CLIENT_ID = ((window.DAYBOOK_CONFIG || {}).gcalClientId || '').trim();
 const FINANCE_SHEET_ID = ((window.DAYBOOK_CONFIG || {}).financeSheetId || '').trim();
-const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/spreadsheets.readonly';
+const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/spreadsheets.readonly';
 const SELECTED_KEY = 'dash.gcal.selectedCals';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -76,7 +76,7 @@ async function fetchFinanceData(token, sheetId) {
     'Financial Health!B5',    // Emergency Fund
     'Financial Health!C5',    // Debt-to-Income
     'Visual Summary!I2:J4',   // Asset breakdown (donut)
-    'Monthly Spending!B8:E24',// Budget vs spent by category
+    'Monthly Spending!B8:G24',// Budget vs spent by category (G = prior month)
     'Dashboard!B14:C15',      // Debt breakdown (CC + student loans)
   ];
   const params = ranges.map(r => `ranges=${encodeURIComponent(r)}`).join('&');
@@ -101,12 +101,13 @@ async function fetchFinanceData(token, sheetId) {
       value: parseFloat((r[1] || '0').replace(/[$,]/g, '')) || 0,
     })).filter(a => a.name && a.value > 0);
 
-    // Budget vs spent rows for bar chart
+    // Budget vs spent rows for bar chart (G col = prior month)
     const budgetRows = data.valueRanges[10].values || [];
     const budgetCategories = budgetRows.map(r => ({
       name: r[0] || '',
       spent: parseFloat((r[1] || '0').replace(/[$,()]/g, '')) || 0,
       budget: parseFloat((r[2] || '0').replace(/[$,()]/g, '')) || 0,
+      priorMonth: parseFloat((r[5] || '0').replace(/[$,()]/g, '')) || 0,
     })).filter(r => r.name && (r.spent > 0 || r.budget > 0));
 
     // Debt breakdown rows for donut chart
@@ -135,6 +136,26 @@ async function fetchAllEvents(token, calendarList, selectedIds, timeMin, timeMax
   const active = selectedIds ? calendarList.filter(c => selectedIds.has(c.id)) : calendarList;
   const results = await Promise.all(active.map(c => fetchEventsForCalendar(token, c.id, c.color, c.name, timeMin, timeMax)));
   return results.flat().sort((a,b) => a.date !== b.date ? (a.date < b.date ? -1 : 1) : a.start - b.start);
+}
+
+async function createCalendarEvent(token, { title, dateISO, startHour, startMin, durationMin }) {
+  const start = new Date(`${dateISO}T${pad2(startHour)}:${pad2(startMin)}:00`);
+  const end   = new Date(start.getTime() + durationMin * 60000);
+  const body  = {
+    summary: title,
+    start: { dateTime: toLocalISO(start), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+    end:   { dateTime: toLocalISO(end),   timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+  };
+  const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.error?.message || `HTTP ${res.status}`);
+  }
+  return res.json();
 }
 
 // ── Store ─────────────────────────────────────────────────────────────────────
@@ -278,10 +299,16 @@ const gcalStore = (() => {
     set({ status: 'idle', events: null, weekEvents: null, upcomingEvents: null, financeData: null, token: null, calendarList: null, error: null });
   };
 
+  const addEvent = async (eventDetails) => {
+    if (!state.token) throw new Error('Not connected');
+    await createCalendarEvent(state.token, eventDetails);
+    await doFetch(state.token, state.calendarList, state.selectedIds);
+  };
+
   // Kick off fetch immediately if we recovered a cached token
   if (cachedToken) { Promise.resolve().then(() => doFetch(cachedToken, null, state.selectedIds)); }
 
-  return { get, subscribe, connect, refresh, disconnect, toggleCalendar };
+  return { get, subscribe, connect, refresh, disconnect, toggleCalendar, addEvent };
 })();
 
 // When the page comes back to the foreground (e.g. returning to mobile tab),

@@ -1506,9 +1506,20 @@ function BudgetBarsModule() {
           const over     = c.spent > c.budget && c.budget > 0;
           const budgetW  = (c.budget / maxVal) * 100;
           const spentW   = (c.spent  / maxVal) * 100;
+          const hasPrior = c.priorMonth > 0;
+          const delta    = hasPrior ? c.spent - c.priorMonth : 0;
+          const deltaPct = hasPrior ? Math.round(Math.abs(delta) / c.priorMonth * 100) : 0;
+          const deltaUp  = delta > 0;
           return (
             <div key={i} className="fin-bar-row">
-              <div className="fin-bar-row__label">{c.name}</div>
+              <div className="fin-bar-row__label">
+                {c.name}
+                {hasPrior && (
+                  <span className={`fin-bar-trend ${deltaUp ? 'fin-bar-trend--up' : 'fin-bar-trend--down'}`}>
+                    {deltaUp ? '↑' : '↓'}{deltaPct}%
+                  </span>
+                )}
+              </div>
               <div className="fin-bar-row__track">
                 <div className="fin-bar-row__budget" style={{ width: `${budgetW}%` }} />
                 <div
