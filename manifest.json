@@ -1,0 +1,13 @@
+{
+  "name": "Daybook",
+  "short_name": "Daybook",
+  "description": "Lamide's personal productivity dashboard",
+  "start_url": "/daybook/",
+  "scope": "/daybook/",
+  "display": "standalone",
+  "background_color": "#FAF9F7",
+  "theme_color": "#6F3F8E",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable any" }
+  ]
+}

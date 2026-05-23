@@ -4,6 +4,9 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Daybook · Lamide's Dashboard</title>
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#6F3F8E" />
+<link rel="apple-touch-icon" href="icon.svg" />
 <link rel="stylesheet" href="colors_and_type.css" />
 <link rel="stylesheet" href="styles.css" />
 
@@ -39,5 +42,10 @@
 <script type="text/babel" src="modules.jsx"></script>
 <script type="text/babel" src="views.jsx"></script>
 <script type="text/babel" src="app.jsx"></script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('/daybook/sw.js'));
+}
+</script>
 </body>
 </html>
