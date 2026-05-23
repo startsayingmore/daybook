@@ -991,8 +991,11 @@ function HabitTrackerExpandedModule() {
   const [habits, setHabits] = useLocalState('dash.habits.v1', []);
   const week = weekDates();
   const todayI = todayISO();
-  const totalCells = habits.length * 7;
-  const doneCells = habits.reduce((s, h) => s + week.filter((d) => h.days?.[d]).length, 0);
+  const todayIdx = week.indexOf(todayI);
+  const elapsed = todayIdx >= 0 ? todayIdx + 1 : 7;
+  const elapsedDays = week.slice(0, elapsed);
+  const totalCells = habits.length * elapsed;
+  const doneCells = habits.reduce((s, h) => s + elapsedDays.filter((d) => h.days?.[d]).length, 0);
   const score = totalCells ? Math.round(doneCells / totalCells * 100) : 0;
 
   const toggleDay = (hid, iso) => {
@@ -1023,8 +1026,8 @@ function HabitTrackerExpandedModule() {
           })}
         </div>
         {habits.map((h) => {
-          const done = week.filter((d) => h.days?.[d]).length;
-          const pct = done / 7 * 100;
+          const done = elapsedDays.filter((d) => h.days?.[d]).length;
+          const pct = elapsed ? done / elapsed * 100 : 0;
           return (
             <div key={h.id} className="hctrack__row">
               <div className="hctrack__name">
@@ -1033,7 +1036,7 @@ function HabitTrackerExpandedModule() {
               </div>
               <div className="hctrack__pbar">
                 <div style={{ width: `${pct}%` }}></div>
-                <span className="hctrack__pcount">{done}/7</span>
+                <span className="hctrack__pcount">{done}/{elapsed}</span>
               </div>
               {week.map((iso, i) => {
                 const isFuture = iso > todayI;
