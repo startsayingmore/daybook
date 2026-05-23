@@ -73,6 +73,16 @@ const STATUS_ORDER = ['todo', 'doing', 'done'];
 const STATUS_LABEL = { todo: 'Not started', doing: 'In progress', done: 'Done' };
 const taskStatus = (t) => t.status || (t.done ? 'done' : 'todo');
 
+const TASK_WEEK_KEY = 'dash.tasks.weekOf';
+const weekMonday = () => {
+  const d = new Date();
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day; // shift to Monday
+  const mon = new Date(d);
+  mon.setDate(d.getDate() + diff);
+  return mon.toISOString().slice(0, 10);
+};
+
 function TasksModule() {
   const [tasks, setTasks] = useLocalState('dash.tasks.v1', [
     { id: 't1', title: 'Sketch onboarding revisions for SSM v2', status: 'doing', priority: 'high', tag: 'ssm' },
@@ -87,6 +97,16 @@ function TasksModule() {
   const [draftTag, setDraftTag] = useState('work');
   const [editing, setEditing] = useState(null);
   const [editDraft, setEditDraft] = useState({ title: '', tag: 'work', priority: 'mid' });
+
+  // Clear done tasks at the start of each new week
+  useEffect(() => {
+    const thisWeek = weekMonday();
+    const lastWeek = localStorage.getItem(TASK_WEEK_KEY);
+    if (lastWeek && lastWeek !== thisWeek) {
+      setTasks(prev => prev.filter(t => taskStatus(t) !== 'done'));
+    }
+    localStorage.setItem(TASK_WEEK_KEY, thisWeek);
+  }, []);
 
   const add = (e) => {
     e?.preventDefault?.();
