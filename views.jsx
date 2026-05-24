@@ -1010,6 +1010,7 @@ function HabitTrackerExpandedModule() {
       <p style={{ fontSize: 10.5, letterSpacing: '0.18em', textTransform: 'uppercase', fontWeight: 600, color: 'var(--fg-muted)', margin: '8px 0 0' }}>
         Daily habits
       </p>
+      <div className="hctrack-scroll">
       <div className="hctrack">
         <div className="hctrack__head">
           <span></span>
@@ -1055,6 +1056,7 @@ function HabitTrackerExpandedModule() {
             </div>);
 
         })}
+      </div>
       </div>
     </Card>);
 

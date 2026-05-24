@@ -2427,7 +2427,10 @@ input, textarea {
   .topbar__right { align-items: flex-start; width: 100%; }
   .vision-grid { grid-template-columns: 1fr; }
   .fin-grid { grid-template-columns: 1fr; }
-  .hctrack { grid-template-columns: 1fr; gap: 12px; }
+  /* Habit tracker: scroll just the grid, not the whole card */
+  .hctrack-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .hctrack { min-width: 520px; grid-template-columns: minmax(120px, 1fr) 80px repeat(7, 30px); gap: 2px 4px; }
+  .hctrack__cell { width: 28px; height: 28px; }
 }
 
 /* ---------- Responsive (collapse rail under 980) ---------- */
@@ -2436,6 +2439,12 @@ input, textarea {
   .rail { display: none; }
   .main { padding: 20px; }
   .topbar__settings-btn { display: flex; }
+  /* Task card: pills drop to full-width scrollable row below title */
+  .m-tasks .card__head { flex-wrap: wrap; gap: 6px; }
+  .m-tasks .card__actions { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
+  .m-tasks .pills { flex-wrap: nowrap; }
+  /* Task input: hide date picker — set due dates via edit instead */
+  .m-tasks .task-input input[type="date"] { display: none; }
 }
 
 /* ============================================================
