@@ -35,6 +35,8 @@ const currentQuarter = (d = new Date()) => ({
 // ============================================================
 // WEEKLY FOCUS
 // ============================================================
+const FOCUS_WEEK_KEY = 'dash.focus.weekOf';
+
 function WeeklyFocusModule() {
   const [data, setData] = useLocalState('dash.weeklyFocus.v1', {
     focus: 'I am on track to build generational wealth before 35.',
@@ -45,6 +47,15 @@ function WeeklyFocusModule() {
 
   });
   const [draft, setDraft] = useState('');
+
+  useEffect(() => {
+    const thisWeek = weekMonday();
+    const lastWeek = localStorage.getItem(FOCUS_WEEK_KEY);
+    if (lastWeek && lastWeek !== thisWeek) {
+      setData(prev => ({ ...prev, goals: prev.goals.map(g => ({ ...g, done: false })) }));
+    }
+    localStorage.setItem(FOCUS_WEEK_KEY, thisWeek);
+  }, []);
 
   const addGoal = (e) => {
     e?.preventDefault?.();
