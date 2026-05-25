@@ -76,11 +76,10 @@ const taskStatus = (t) => t.status || (t.done ? 'done' : 'todo');
 const TASK_WEEK_KEY = 'dash.tasks.weekOf';
 const weekMonday = () => {
   const d = new Date();
-  const day = d.getDay();
-  const diff = day === 0 ? -6 : 1 - day; // shift to Monday
-  const mon = new Date(d);
-  mon.setDate(d.getDate() + diff);
-  return mon.toISOString().slice(0, 10);
+  const diff = d.getDay() === 0 ? -6 : 1 - d.getDay();
+  d.setDate(d.getDate() + diff);
+  // use local date parts — toISOString() would return UTC and shift the date after 7 PM CDT
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
 function TasksModule() {
