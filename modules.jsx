@@ -1024,71 +1024,84 @@ const buildSeries = (followers, delta, n = 7) => {
 };
 
 function SocialModule() {
+  const cal = useCalendar();
   const [accounts, setAccounts] = useLocalState('dash.social.v1', [
-    { id: 's1', platform: 'instagram', handle: '@startsayingmore', followers: 14820, delta7d: 312, engagement: 4.8, posts: 42 },
-    { id: 's2', platform: 'tiktok',    handle: '@startsayingmore', followers:  8240, delta7d: 184, engagement: 7.2, posts: 28 },
+    { id: 's1', platform: 'instagram', handle: '@startsayingmore', followers: 1191, delta7d: 0, engagement: 0, posts: 0 },
+    { id: 's2', platform: 'tiktok',    handle: '@startsayingmore', followers: 1305, delta7d: 0, engagement: 0, posts: 0 },
   ]);
 
-  // One-time migration: drop legacy Threads / LinkedIn rows seeded in earlier versions.
+  // One-time migration: drop legacy placeholder rows seeded in earlier versions.
   useEffect(() => {
-    const dropped = accounts.filter(a => a.platform === 'threads' || a.platform === 'linkedin');
-    if (dropped.length) setAccounts(accounts.filter(a => a.platform !== 'threads' && a.platform !== 'linkedin'));
+    const stale = accounts.filter(a =>
+      a.platform === 'threads' || a.platform === 'linkedin' ||
+      a.followers === 14820 || a.followers === 8240
+    );
+    if (stale.length) setAccounts([
+      { id: 's1', platform: 'instagram', handle: '@startsayingmore', followers: 1191, delta7d: 0, engagement: 0, posts: 0 },
+      { id: 's2', platform: 'tiktok',    handle: '@startsayingmore', followers: 1305, delta7d: 0, engagement: 0, posts: 0 },
+    ]);
   }, []);
 
-  const [range, setRange] = useState('7d');
+  // Merge live sheet data over localStorage when Google is connected
+  const liveMap = {};
+  if (cal.socialData) cal.socialData.forEach(r => { liveMap[r.platform] = r; });
+  const isLive = Object.keys(liveMap).length > 0;
 
-  const totalFollowers = accounts.reduce((s, a) => s + a.followers, 0);
-  const totalDelta = accounts.reduce((s, a) => s + a.delta7d, 0);
-  const avgEng = accounts.length ? (accounts.reduce((s, a) => s + a.engagement, 0) / accounts.length) : 0;
+  const merged = accounts.map(a => {
+    const live = liveMap[a.platform];
+    if (!live) return a;
+    return { ...a, followers: live.followers, delta7d: live.followers - live.prevFollowers, updatedAt: live.updatedAt };
+  });
+
+  const totalFollowers = merged.reduce((s, a) => s + a.followers, 0);
+  const totalDelta     = merged.reduce((s, a) => s + a.delta7d, 0);
+  const lastSynced     = isLive ? (cal.socialData.find(r => r.updatedAt)?.updatedAt || '') : '';
 
   return (
     <Card
       cls="m-social"
       title="Social"
-      count={`${accounts.length} accounts`}
+      count={`${merged.length} accounts`}
       action={
-        <div className="pills">
-          {['7d', '30d', '90d'].map(k => (
-            <button key={k} className={`pill ${range === k ? 'is-active' : ''}`} onClick={() => setRange(k)}>{k}</button>
-          ))}
-        </div>
+        isLive
+          ? <span style={{ fontSize: 10.5, color: 'var(--fg-muted)', fontWeight: 500 }}>
+              via Make · {lastSynced || 'synced'}
+            </span>
+          : <span style={{ fontSize: 10.5, color: 'var(--fg-muted)', fontWeight: 500 }}>manual · connect Google to sync</span>
       }
     >
       <div className="social-summary">
         <div className="social-stat">
           <span className="k">Total reach</span>
           <span className="v">{formatK(totalFollowers)}</span>
-          <span className={`d ${totalDelta >= 0 ? 'd--up' : 'd--down'}`}>
-            {totalDelta >= 0 ? '▲' : '▼'} {formatDelta(totalDelta)} this {range}
+          <span className={`d ${totalDelta > 0 ? 'd--up' : totalDelta < 0 ? 'd--down' : 'd--neutral'}`}>
+            {totalDelta > 0 ? '▲' : totalDelta < 0 ? '▼' : '—'} {totalDelta !== 0 ? formatDelta(totalDelta) + ' since last sync' : 'no change'}
           </span>
         </div>
         <div className="social-stat">
-          <span className="k">Avg engagement</span>
-          <span className="v">{avgEng.toFixed(1)}<span className="unit">%</span></span>
-          <span className="d d--neutral">across {accounts.length} platforms</span>
+          <span className="k">Instagram</span>
+          <span className="v">{formatK(merged.find(a => a.platform === 'instagram')?.followers || 0)}</span>
+          <span className="d d--neutral">@startsayingmore</span>
         </div>
         <div className="social-stat">
-          <span className="k">Posts this {range}</span>
-          <span className="v">{accounts.reduce((s, a) => s + a.posts, 0)}</span>
-          <span className="d d--neutral">{(accounts.reduce((s, a) => s + a.posts, 0) / (range === '7d' ? 7 : range === '30d' ? 30 : 90)).toFixed(1)}/day</span>
+          <span className="k">TikTok</span>
+          <span className="v">{formatK(merged.find(a => a.platform === 'tiktok')?.followers || 0)}</span>
+          <span className="d d--neutral">@startsayingmore</span>
         </div>
         <div className="social-stat">
-          <span className="k">Best performer</span>
-          <span className="v" style={{ fontSize: 16, color: 'var(--ssm-eminence)' }}>
-            {(() => {
-              const best = [...accounts].sort((a, b) => b.engagement - a.engagement)[0];
-              return PLATFORMS[best?.platform]?.name || '—';
-            })()}
+          <span className="k">Combined growth</span>
+          <span className="v" style={{ fontSize: 16, color: totalDelta >= 0 ? 'var(--ssm-eminence)' : 'var(--fg-error)' }}>
+            {formatDelta(totalDelta)}
           </span>
-          <span className="d d--neutral">by engagement rate</span>
+          <span className="d d--neutral">since last sync</span>
         </div>
       </div>
 
       <div className="social-grid">
-        {accounts.map(a => {
+        {merged.map(a => {
           const p = PLATFORMS[a.platform] || PLATFORMS.instagram;
-          const series = buildSeries(a.followers, a.delta7d);
           const up = a.delta7d >= 0;
+          const series = buildSeries(a.followers, a.delta7d);
           return (
             <div key={a.id} className="social-card">
               <div className="social-card__head">
@@ -1097,9 +1110,11 @@ function SocialModule() {
                   <span className="social-card__platform">{p.name}</span>
                   <span className="social-card__handle">{a.handle}</span>
                 </div>
-                <span className={`social-card__delta ${up ? 'is-up' : 'is-down'}`}>
-                  {up ? '▲' : '▼'} {formatDelta(a.delta7d)}
-                </span>
+                {a.delta7d !== 0 && (
+                  <span className={`social-card__delta ${up ? 'is-up' : 'is-down'}`}>
+                    {up ? '▲' : '▼'} {formatDelta(a.delta7d)}
+                  </span>
+                )}
               </div>
               <div className="social-card__num">
                 {formatK(a.followers)}
@@ -1112,10 +1127,11 @@ function SocialModule() {
                   fill={up ? 'rgba(111, 63, 142, 0.10)' : 'rgba(179, 58, 58, 0.08)'}
                 />
               </div>
-              <div className="social-card__foot">
-                <span><strong>{a.engagement.toFixed(1)}%</strong> engagement</span>
-                <span><strong>{a.posts}</strong> posts</span>
-              </div>
+              {a.updatedAt && (
+                <div className="social-card__foot">
+                  <span style={{ color: 'var(--fg-muted)' }}>updated {a.updatedAt}</span>
+                </div>
+              )}
             </div>
           );
         })}

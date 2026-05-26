@@ -126,6 +126,26 @@ async function fetchFinanceData(token, sheetId) {
   } catch (e) { console.warn('[Finance] fetch error:', e); return null; }
 }
 
+async function fetchSocialData(token, sheetId) {
+  if (!sheetId) return null;
+  try {
+    const res = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent('Social!B4:F6')}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const rows = (data.values || []).slice(1); // skip header row
+    return rows.map(r => ({
+      platform:      (r[0] || '').toLowerCase().trim(),
+      handle:        r[1] || '',
+      followers:     parseInt((r[2] || '0').replace(/[^0-9]/g, ''), 10) || 0,
+      prevFollowers: parseInt((r[3] || '0').replace(/[^0-9]/g, ''), 10) || 0,
+      updatedAt:     r[4] || '',
+    })).filter(r => r.platform);
+  } catch (e) { console.warn('[Social] fetch error:', e); return null; }
+}
+
 async function fetchEventsForCalendar(token, calId, calColor, calName, timeMin, timeMax) {
   const params = new URLSearchParams({ timeMin, timeMax, singleEvents: 'true', orderBy: 'startTime', maxResults: '50' });
   const data = await apiFetch(token, `/calendars/${encodeURIComponent(calId)}/events?${params}`);
@@ -190,7 +210,7 @@ const gcalStore = (() => {
 
   let state = {
     status: cachedToken ? 'loading' : 'idle',
-    events: null, weekEvents: null, upcomingEvents: null, financeData: null,
+    events: null, weekEvents: null, upcomingEvents: null, financeData: null, socialData: null,
     calendarList: null, selectedIds: loadSelectedIds(),
     token: cachedToken || null, error: null,
   };
@@ -229,20 +249,21 @@ const gcalStore = (() => {
   const doFetch = async (token, calendarList, selectedIds) => {
     try {
       const cals = calendarList || await fetchCalendarList(token);
-      const [events, weekEvents, upcomingEvents, financeData] = await Promise.all([
+      const [events, weekEvents, upcomingEvents, financeData, socialData] = await Promise.all([
         fetchAllEvents(token, cals, selectedIds, todayMidnight(), todayEndOfDay()),
         fetchAllEvents(token, cals, selectedIds, weekMondayMidnight(), weekSundayEndOfDay()),
         fetchAllEvents(token, cals, selectedIds, todayMidnight(), upcoming60End()),
         fetchFinanceData(token, FINANCE_SHEET_ID),
+        fetchSocialData(token, FINANCE_SHEET_ID),
       ]);
       saveCachedToken(token);
       localStorage.setItem(AUTO_KEY, '1');
-      set({ status: 'ready', token, calendarList: cals, events, weekEvents, upcomingEvents, financeData });
+      set({ status: 'ready', token, calendarList: cals, events, weekEvents, upcomingEvents, financeData, socialData });
       scheduleRefresh();
     } catch (e) {
       if (e.code === 401) {
         clearCachedToken();
-        set({ status: 'idle', token: null, events: null, weekEvents: null, upcomingEvents: null, financeData: null, calendarList: null });
+        set({ status: 'idle', token: null, events: null, weekEvents: null, upcomingEvents: null, financeData: null, socialData: null, calendarList: null });
         connect(true);
       } else { set({ status: 'error', error: e.message }); }
     }
@@ -296,7 +317,7 @@ const gcalStore = (() => {
     if (state.token && window.google?.accounts?.oauth2) google.accounts.oauth2.revoke(state.token, ()=>{});
     clearCachedToken();
     localStorage.removeItem(AUTO_KEY);
-    set({ status: 'idle', events: null, weekEvents: null, upcomingEvents: null, financeData: null, token: null, calendarList: null, error: null });
+    set({ status: 'idle', events: null, weekEvents: null, upcomingEvents: null, financeData: null, socialData: null, token: null, calendarList: null, error: null });
   };
 
   const addEvent = async (eventDetails) => {
