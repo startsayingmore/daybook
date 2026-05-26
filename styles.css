@@ -447,7 +447,8 @@ input, textarea {
   color: var(--ssm-white);
 }
 .check svg { position: relative; width: 12px; height: 12px; stroke-width: 3; opacity: 0; transition: opacity var(--dur-fast) var(--ease-out); }
-.check--done svg { opacity: 1; }
+.check--done svg, .check.is-checked svg { opacity: 1; }
+.check.is-checked { background: var(--ssm-eminence); border-color: var(--ssm-eminence); color: var(--ssm-white); }
 
 .task__status {
   font-size: 10.5px;

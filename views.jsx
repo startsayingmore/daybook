@@ -73,7 +73,7 @@ function WeeklyFocusModule() {
         <div className="focus-goals__list">
           {data.goals.map((g) =>
           <div key={g.id} className={`focus-goal ${g.done ? 'is-done' : ''}`}>
-              <button className={`check ${g.done ? 'is-checked' : ''}`} onClick={() => toggle(g.id)}>
+              <button className={`check check--${g.done ? 'done' : 'todo'}`} onClick={() => toggle(g.id)}>
                 <Icon name="check" />
               </button>
               <span className="focus-goal__text">{g.text}</span>
@@ -673,7 +673,7 @@ function QuarterlyGoalsModule() {
               ) : (
                 <>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                    <button className={`check ${g.done ? 'is-checked' : ''}`} onClick={() => toggleDone(g.id)} style={{ flexShrink: 0 }}>
+                    <button className={`check check--${g.done ? 'done' : 'todo'}`} onClick={() => toggleDone(g.id)} style={{ flexShrink: 0 }}>
                       <Icon name="check" />
                     </button>
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -998,7 +998,6 @@ function FocusBucketsModule() {
 const DAY_LETTERS_FULL = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 function HabitTrackerExpandedModule() {
-  // re-uses dash.habits.v1 so toggles sync across views
   const [habits, setHabits] = useLocalState('dash.habits.v1', []);
   const week = weekDates();
   const todayI = todayISO();
@@ -1009,68 +1008,148 @@ function HabitTrackerExpandedModule() {
   const doneCells = habits.reduce((s, h) => s + elapsedDays.filter((d) => h.days?.[d]).length, 0);
   const score = totalCells ? Math.round(doneCells / totalCells * 100) : 0;
 
-  const toggleDay = (hid, iso) => {
+  const [editing, setEditing] = useState(null);
+  const [editDraft, setEditDraft] = useState({ name: '', glyph: '' });
+  const [adding, setAdding] = useState(false);
+  const [newDraft, setNewDraft] = useState({ name: '', glyph: '' });
+
+  const toggleDay = (hid, iso) =>
     setHabits(habits.map((h) => h.id === hid ? { ...h, days: { ...h.days, [iso]: !h.days[iso] } } : h));
+
+  const startEdit = (h) => { setEditing(h.id); setEditDraft({ name: h.name, glyph: h.glyph }); };
+  const saveEdit = (id) => {
+    if (!editDraft.name.trim()) return;
+    setHabits(habits.map((h) => h.id === id ? { ...h, name: editDraft.name.trim(), glyph: editDraft.glyph.trim() || h.glyph } : h));
+    setEditing(null);
+  };
+  const deleteHabit = (id) => { setHabits(habits.filter((h) => h.id !== id)); setEditing(null); };
+
+  const addHabit = (e) => {
+    e?.preventDefault?.();
+    if (!newDraft.name.trim()) return;
+    setHabits([...habits, { id: 'h' + Date.now(), name: newDraft.name.trim(), glyph: newDraft.glyph.trim() || '⭐', days: {} }]);
+    setNewDraft({ name: '', glyph: '' });
+    setAdding(false);
   };
 
   return (
-    <Card cls="m-hctrack" title="Habit tracker" count={fmtWeekLabel()} action={<span style={{ fontSize: 11, color: 'var(--fg-muted)', fontWeight: 500 }}>weekly score <strong style={{ color: 'var(--ssm-orange)', fontSize: 13 }}>{score}%</strong></span>}>
+    <Card
+      cls="m-hctrack"
+      title="Habit tracker"
+      count={fmtWeekLabel()}
+      action={
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 11, color: 'var(--fg-muted)', fontWeight: 500 }}>weekly score <strong style={{ color: 'var(--ssm-orange)', fontSize: 13 }}>{score}%</strong></span>
+          <button className="btn btn--ghost" style={{ fontSize: 11, padding: '4px 10px' }} onClick={() => setAdding(a => !a)}>
+            {adding ? 'Cancel' : '+ Add'}
+          </button>
+        </div>
+      }
+    >
       <div className="goal__bar" style={{ height: 6 }}>
         <div className="goal__fill" style={{ width: `${score}%`, background: 'linear-gradient(90deg, var(--ssm-orange) 0%, var(--ssm-orange-light) 100%)' }}></div>
       </div>
       <p style={{ fontSize: 10.5, letterSpacing: '0.18em', textTransform: 'uppercase', fontWeight: 600, color: 'var(--fg-muted)', margin: '8px 0 0' }}>
-        Daily habits
+        Daily habits{habits.length > 0 && <span style={{ letterSpacing: 0, textTransform: 'none', fontWeight: 400, opacity: 0.55, fontSize: 10 }}> · click name to edit</span>}
       </p>
       <div className="hctrack-scroll">
-      <div className="hctrack">
-        <div className="hctrack__head">
-          <span></span>
-          <span className="hctrack__progress"></span>
-          {week.map((iso, i) => {
-            const d = new Date(iso);
-            const isToday = iso === todayI;
-            return (
-              <span key={iso} className={`hctrack__day ${isToday ? 'is-today' : ''}`}>
-                <span>{DAY_LETTERS_FULL[i]}</span>
-                <span className="hctrack__daynum">{d.getDate()}</span>
-              </span>);
+        <div className="hctrack">
+          <div className="hctrack__head">
+            <span></span>
+            <span className="hctrack__progress"></span>
+            {week.map((iso, i) => {
+              const d = new Date(iso);
+              const isToday = iso === todayI;
+              return (
+                <span key={iso} className={`hctrack__day ${isToday ? 'is-today' : ''}`}>
+                  <span>{DAY_LETTERS_FULL[i]}</span>
+                  <span className="hctrack__daynum">{d.getDate()}</span>
+                </span>
+              );
+            })}
+          </div>
+          {habits.map((h) => {
+            const done = elapsedDays.filter((d) => h.days?.[d]).length;
+            const pct = elapsed ? done / elapsed * 100 : 0;
+            const isEditing = editing === h.id;
 
+            if (isEditing) {
+              return (
+                <div key={h.id} style={{ gridColumn: '1 / -1', padding: '6px 0', borderTop: '1px solid var(--border-subtle)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <input
+                      value={editDraft.glyph}
+                      onChange={e => setEditDraft(d => ({ ...d, glyph: e.target.value }))}
+                      style={{ width: 36, border: '1px solid var(--border-default)', borderRadius: 6, padding: '4px', fontSize: 14, textAlign: 'center', background: 'var(--ssm-paper)', fontFamily: 'inherit' }}
+                      placeholder="🏃"
+                    />
+                    <input
+                      autoFocus
+                      value={editDraft.name}
+                      onChange={e => setEditDraft(d => ({ ...d, name: e.target.value }))}
+                      onKeyDown={e => { if (e.key === 'Enter') saveEdit(h.id); if (e.key === 'Escape') setEditing(null); }}
+                      style={{ flex: 1, minWidth: 120, border: '1.5px solid var(--ssm-eminence)', borderRadius: 6, padding: '4px 10px', fontSize: 13, fontWeight: 600, background: 'var(--ssm-paper)', fontFamily: 'inherit', outline: 'none' }}
+                    />
+                    <button onClick={() => saveEdit(h.id)} style={{ fontSize: 11, fontWeight: 700, color: 'var(--ssm-eminence)', padding: '4px 10px', background: 'var(--ssm-eminence-tint)', borderRadius: 6 }}>Save</button>
+                    <button onClick={() => setEditing(null)} style={{ fontSize: 11, fontWeight: 600, color: 'var(--fg-muted)', padding: '4px 10px', background: 'var(--ssm-mist)', borderRadius: 6 }}>Cancel</button>
+                    <button onClick={() => deleteHabit(h.id)} style={{ fontSize: 11, fontWeight: 700, color: 'var(--fg-error)', padding: '4px 10px', background: 'rgba(179,58,58,0.08)', borderRadius: 6 }}>Delete</button>
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div key={h.id} className="hctrack__row">
+                <div className="hctrack__name" style={{ cursor: 'pointer' }} onClick={() => startEdit(h)} title="Click to edit">
+                  <span className="glyph">{h.glyph}</span>
+                  <span>{h.name}</span>
+                </div>
+                <div className="hctrack__pbar">
+                  <div style={{ width: `${pct}%` }}></div>
+                  <span className="hctrack__pcount">{done}/{elapsed}</span>
+                </div>
+                {week.map((iso) => {
+                  const isFuture = iso > todayI;
+                  const isToday = iso === todayI;
+                  const isDone = !!h.days?.[iso];
+                  return (
+                    <button
+                      key={iso}
+                      className={`hctrack__cell ${isDone ? 'is-done' : ''} ${isToday ? 'is-today' : ''} ${isFuture ? 'is-future' : ''}`}
+                      onClick={() => !isFuture && toggleDay(h.id, iso)}>
+                      {isDone ? '✓' : ''}
+                    </button>
+                  );
+                })}
+              </div>
+            );
           })}
         </div>
-        {habits.map((h) => {
-          const done = elapsedDays.filter((d) => h.days?.[d]).length;
-          const pct = elapsed ? done / elapsed * 100 : 0;
-          return (
-            <div key={h.id} className="hctrack__row">
-              <div className="hctrack__name">
-                <span className="glyph">{h.glyph}</span>
-                <span>{h.name}</span>
-              </div>
-              <div className="hctrack__pbar">
-                <div style={{ width: `${pct}%` }}></div>
-                <span className="hctrack__pcount">{done}/{elapsed}</span>
-              </div>
-              {week.map((iso, i) => {
-                const isFuture = iso > todayI;
-                const isToday = iso === todayI;
-                const isDone = !!h.days?.[iso];
-                return (
-                  <button
-                    key={iso}
-                    className={`hctrack__cell ${isDone ? 'is-done' : ''} ${isToday ? 'is-today' : ''} ${isFuture ? 'is-future' : ''}`}
-                    onClick={() => !isFuture && toggleDay(h.id, iso)}>
-                    
-                    {isDone ? '✓' : ''}
-                  </button>);
-
-              })}
-            </div>);
-
-        })}
       </div>
-      </div>
-    </Card>);
 
+      {habits.length === 0 && !adding && (
+        <div className="empty" style={{ marginTop: 8 }}><strong>No habits yet.</strong> Hit "+ Add" to create your first one.</div>
+      )}
+
+      {adding && (
+        <form className="task-input task-input--mini" onSubmit={addHabit} style={{ marginTop: 8 }}>
+          <input
+            value={newDraft.glyph}
+            onChange={e => setNewDraft(d => ({ ...d, glyph: e.target.value }))}
+            placeholder="🌟"
+            style={{ width: 32, border: 'none', background: 'transparent', fontSize: 14, textAlign: 'center', outline: 'none', flexShrink: 0 }}
+          />
+          <input
+            autoFocus
+            value={newDraft.name}
+            onChange={e => setNewDraft(d => ({ ...d, name: e.target.value }))}
+            placeholder="New habit name…"
+          />
+          <button type="submit" className="submit">Add</button>
+        </form>
+      )}
+    </Card>
+  );
 }
 
 // ============================================================
@@ -1160,7 +1239,7 @@ function BucketListModule() {
         {visible.length === 0 && <div className="empty"><strong>No goals here yet.</strong>Add one above to get started.</div>}
         {visible.map((it) =>
         <div key={it.id} className={`bucket-item ${it.done ? 'is-done' : ''}`}>
-            <button className={`check ${it.done ? 'is-checked' : ''}`} onClick={() => setItems(items.map((x) => x.id === it.id ? { ...x, done: !x.done } : x))}>
+            <button className={`check check--${it.done ? 'done' : 'todo'}`} onClick={() => setItems(items.map((x) => x.id === it.id ? { ...x, done: !x.done } : x))}>
               <Icon name="check" />
             </button>
             <div className="bucket-item__body">
