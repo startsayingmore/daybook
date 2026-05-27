@@ -476,7 +476,7 @@ function FinancesModule({ compact = false }) {
             <div className="fin-mini__row" style={{ marginTop: 6 }}>
               <div>
                 <p className="fin-mini__k">Budget left</p>
-                <p className="fin-mini__v is-pos">{fd.budgetRemaining}</p>
+                <p className={`fin-mini__v ${/^[\-(]/.test(String(fd.budgetRemaining || '')) ? 'is-neg' : 'is-pos'}`}>{fd.budgetRemaining}</p>
               </div>
               <div>
                 <p className="fin-mini__k">Savings rate</p>
@@ -525,7 +525,7 @@ function FinancesModule({ compact = false }) {
         <div className="fin-grid" style={{ marginTop: 10 }}>
           <div className="fin-stat">
             <p className="fin-stat__k">Budget remaining</p>
-            <p className="fin-stat__v is-pos">{fd.budgetRemaining}</p>
+            <p className={`fin-stat__v ${/^[\-(]/.test(String(fd.budgetRemaining || '')) ? 'is-neg' : 'is-pos'}`}>{fd.budgetRemaining}</p>
             <p className="fin-stat__sub">this month</p>
           </div>
           <div className="fin-stat">
