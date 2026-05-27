@@ -28,6 +28,7 @@
 // ============================================================
 
 window.DAYBOOK_CONFIG = {
-  gcalClientId:  '886350660616-lgm5eps4s7veo5pp1mp962eb2hv8c0ep.apps.googleusercontent.com',
+  gcalClientId:   '886350660616-lgm5eps4s7veo5pp1mp962eb2hv8c0ep.apps.googleusercontent.com',
   financeSheetId: '1tcbIxX3e6O0YHfIicRRV-mvaYxlUqr82llbTMHZ2fNo',
+  socialSheetId:  '1hmIwg8TmEK94pzC3QSlfstcEjNmjJpn-4p_Go-4vbyg',
 };

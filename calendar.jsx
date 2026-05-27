@@ -5,6 +5,7 @@ const { useState, useEffect } = React;
 
 const GCAL_CLIENT_ID = ((window.DAYBOOK_CONFIG || {}).gcalClientId || '').trim();
 const FINANCE_SHEET_ID = ((window.DAYBOOK_CONFIG || {}).financeSheetId || '').trim();
+const SOCIAL_SHEET_ID  = ((window.DAYBOOK_CONFIG || {}).socialSheetId  || '').trim();
 const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/spreadsheets.readonly';
 const SELECTED_KEY = 'dash.gcal.selectedCals';
 
@@ -130,7 +131,7 @@ async function fetchSocialData(token, sheetId) {
   if (!sheetId) return null;
   try {
     const res = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent('Social!B4:F6')}`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent('Metrics!B4:G6')}`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
     if (!res.ok) return null;
@@ -141,7 +142,7 @@ async function fetchSocialData(token, sheetId) {
       handle:        r[1] || '',
       followers:     parseInt((r[2] || '0').replace(/[^0-9]/g, ''), 10) || 0,
       prevFollowers: parseInt((r[3] || '0').replace(/[^0-9]/g, ''), 10) || 0,
-      updatedAt:     r[4] || '',
+      updatedAt:     r[5] || '', // col G (F is Change formula)
     })).filter(r => r.platform);
   } catch (e) { console.warn('[Social] fetch error:', e); return null; }
 }
@@ -254,7 +255,7 @@ const gcalStore = (() => {
         fetchAllEvents(token, cals, selectedIds, weekMondayMidnight(), weekSundayEndOfDay()),
         fetchAllEvents(token, cals, selectedIds, todayMidnight(), upcoming60End()),
         fetchFinanceData(token, FINANCE_SHEET_ID),
-        fetchSocialData(token, FINANCE_SHEET_ID),
+        fetchSocialData(token, SOCIAL_SHEET_ID),
       ]);
       saveCachedToken(token);
       localStorage.setItem(AUTO_KEY, '1');
