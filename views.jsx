@@ -47,32 +47,10 @@ function WeeklyFocusModule() {
     { id: 'wg3', text: 'Apply for 3 more grants', done: true }]
   });
   const [draft, setDraft] = useState('');
-  const [archive, setArchive] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(GOALS_ARCHIVE_KEY) || '[]'); } catch { return []; }
-  });
-  const [showArchive, setShowArchive] = useState(false);
-
   useEffect(() => {
     const thisWeek = weekMonday();
     const lastWeek = localStorage.getItem(FOCUS_WEEK_KEY);
     if (lastWeek && lastWeek !== thisWeek) {
-      // Archive the previous week before wiping done flags
-      const raw = JSON.parse(localStorage.getItem('dash.weeklyFocus.v1') || 'null');
-      const prevGoals = raw?.goals || [];
-      if (prevGoals.length > 0) {
-        const prev = JSON.parse(localStorage.getItem(GOALS_ARCHIVE_KEY) || '[]');
-        if (!prev.some(a => a.weekOf === lastWeek)) {
-          const entry = {
-            weekOf: lastWeek,
-            goals: prevGoals.map(g => ({ text: g.text, done: g.done })),
-            completed: prevGoals.filter(g => g.done).length,
-            total: prevGoals.length,
-          };
-          const updated = [entry, ...prev].slice(0, 16);
-          localStorage.setItem(GOALS_ARCHIVE_KEY, JSON.stringify(updated));
-          setArchive(updated);
-        }
-      }
       setData(prev => ({ ...prev, goals: prev.goals.map(g => ({ ...g, done: false })) }));
     }
     localStorage.setItem(FOCUS_WEEK_KEY, thisWeek);
@@ -108,36 +86,6 @@ function WeeklyFocusModule() {
           <button type="submit" className="submit">Add</button>
         </form>
       </div>
-      {archive.length > 0 && (
-        <div style={{ marginTop: 12, borderTop: '1px solid var(--border-subtle)', paddingTop: 10 }}>
-          <button className="btn btn--ghost" style={{ fontSize: 11, padding: '2px 8px', marginBottom: showArchive ? 8 : 0 }} onClick={() => setShowArchive(s => !s)}>
-            {showArchive ? '▾' : '▸'} History ({archive.length} {archive.length === 1 ? 'week' : 'weeks'})
-          </button>
-          {showArchive && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {archive.map(entry => {
-                const allDone = entry.completed === entry.total && entry.total > 0;
-                return (
-                  <div key={entry.weekOf}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--fg-base)' }}>{fmtWeekLabel(new Date(entry.weekOf + 'T12:00:00'))}</span>
-                      <span style={{ fontSize: 11, fontWeight: 600, color: allDone ? 'var(--fg-success)' : 'var(--fg-muted)' }}>{entry.completed}/{entry.total}</span>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                      {entry.goals.map((g, i) => (
-                        <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 11.5 }}>
-                          <span style={{ color: g.done ? 'var(--fg-success)' : 'var(--fg-muted)', flexShrink: 0, marginTop: 1 }}>{g.done ? '✓' : '○'}</span>
-                          <span style={{ color: g.done ? 'var(--fg-base)' : 'var(--fg-muted)' }}>{g.text}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
     </Card>);
 
 }

@@ -73,7 +73,21 @@ const STATUS_ORDER = ['todo', 'doing', 'done'];
 const STATUS_LABEL = { todo: 'Not started', doing: 'In progress', done: 'Done' };
 const taskStatus = (t) => t.status || (t.done ? 'done' : 'todo');
 
-const TASK_WEEK_KEY = 'dash.tasks.weekOf';
+const TASK_WEEK_KEY    = 'dash.tasks.weekOf';
+const TASK_ARCHIVE_KEY = 'dash.tasks.archive';
+
+const archiveTasks = (doneTasks) => {
+  if (!doneTasks.length) return;
+  const today = todayISO();
+  const week  = weekMonday();
+  const prev  = JSON.parse(localStorage.getItem(TASK_ARCHIVE_KEY) || '[]');
+  const entries = doneTasks.map(t => ({
+    id: 'a' + t.id + '_' + Date.now(),
+    title: t.title, tag: t.tag || '', priority: t.priority || 'mid',
+    completedWeek: week, completedOn: today,
+  }));
+  localStorage.setItem(TASK_ARCHIVE_KEY, JSON.stringify([...entries, ...prev].slice(0, 300)));
+};
 const weekMonday = () => {
   const d = new Date();
   const diff = d.getDay() === 0 ? -6 : 1 - d.getDay();
@@ -98,11 +112,19 @@ function TasksModule() {
   const [editing, setEditing] = useState(null);
   const [editDraft, setEditDraft] = useState({ title: '', tag: 'work', priority: 'mid', dueDate: '' });
 
-  // Clear done tasks at the start of each new week
+  const [taskArchive, setTaskArchive] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(TASK_ARCHIVE_KEY) || '[]'); } catch { return []; }
+  });
+
+  // Archive done tasks and clear them at the start of each new week
   useEffect(() => {
     const thisWeek = weekMonday();
     const lastWeek = localStorage.getItem(TASK_WEEK_KEY);
     if (lastWeek && lastWeek !== thisWeek) {
+      const raw = JSON.parse(localStorage.getItem('dash.tasks.v1') || '[]');
+      const done = raw.filter(t => taskStatus(t) === 'done');
+      archiveTasks(done);
+      setTaskArchive(JSON.parse(localStorage.getItem(TASK_ARCHIVE_KEY) || '[]'));
       setTasks(prev => prev.filter(t => taskStatus(t) !== 'done'));
     }
     localStorage.setItem(TASK_WEEK_KEY, thisWeek);
@@ -122,7 +144,15 @@ function TasksModule() {
     const next = STATUS_ORDER[(STATUS_ORDER.indexOf(cur) + 1) % STATUS_ORDER.length];
     return { ...t, status: next, done: next === 'done' };
   }));
-  const remove = (id) => { setTasks(tasks.filter(t => t.id !== id)); setEditing(null); };
+  const remove = (id) => {
+    const t = tasks.find(t => t.id === id);
+    if (t && taskStatus(t) === 'done') {
+      archiveTasks([t]);
+      setTaskArchive(JSON.parse(localStorage.getItem(TASK_ARCHIVE_KEY) || '[]'));
+    }
+    setTasks(tasks.filter(t => t.id !== id));
+    setEditing(null);
+  };
   const startEdit = (t) => { setEditing(t.id); setEditDraft({ title: t.title, tag: t.tag, priority: t.priority, dueDate: t.dueDate || '' }); };
   const saveEdit = (id) => {
     if (!editDraft.title.trim()) return;
@@ -158,6 +188,7 @@ function TasksModule() {
             ['open', 'Open'],
             ['overdue', `Overdue${overdueCount ? ` · ${overdueCount}` : ''}`],
             ['done', 'Done'],
+            ['history', `History${taskArchive.length ? ` · ${taskArchive.length}` : ''}`],
           ].map(([k, label]) => (
             <button key={k} className={`pill ${filter === k ? 'is-active' : ''}${k === 'overdue' && overdueCount ? ' pill--alert' : ''}`} onClick={() => setFilter(k)}>
               {label}
@@ -290,6 +321,36 @@ function TasksModule() {
           );
         })}
       </div>
+
+      {filter === 'history' && (() => {
+        if (!taskArchive.length) return (
+          <div className="empty" style={{ marginTop: 8 }}><strong>No history yet.</strong> Completed tasks are saved here each week.</div>
+        );
+        const weeks = [...new Set(taskArchive.map(t => t.completedWeek))];
+        return (
+          <div style={{ marginTop: 4 }}>
+            {weeks.map(wk => {
+              const entries = taskArchive.filter(t => t.completedWeek === wk);
+              const d = new Date(wk + 'T12:00:00');
+              const label = `Week of ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+              return (
+                <div key={wk} style={{ marginBottom: 14 }}>
+                  <p style={{ fontSize: 10.5, letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 700, color: 'var(--fg-muted)', margin: '0 0 6px' }}>
+                    {label} <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>· {entries.length} {entries.length === 1 ? 'task' : 'tasks'}</span>
+                  </p>
+                  {entries.map(t => (
+                    <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid var(--border-subtle)', fontSize: 13 }}>
+                      <span style={{ color: 'var(--fg-success)', flexShrink: 0 }}>✓</span>
+                      <span style={{ flex: 1, color: 'var(--fg-muted)', textDecoration: 'line-through' }}>{t.title}</span>
+                      <span className={`task__tag tag--${t.tag}`} style={{ flexShrink: 0 }}>{TAG_LABEL[t.tag] || t.tag}</span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
     </Card>
   );
 }
