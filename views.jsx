@@ -35,7 +35,8 @@ const currentQuarter = (d = new Date()) => ({
 // ============================================================
 // WEEKLY FOCUS
 // ============================================================
-const FOCUS_WEEK_KEY = 'dash.focus.weekOf';
+const FOCUS_WEEK_KEY    = 'dash.focus.weekOf';
+const GOALS_ARCHIVE_KEY = 'dash.goals.archive';
 
 function WeeklyFocusModule() {
   const [data, setData] = useLocalState('dash.weeklyFocus.v1', {
@@ -44,14 +45,34 @@ function WeeklyFocusModule() {
     { id: 'wg1', text: 'Some type of activity everyday this week', done: false },
     { id: 'wg2', text: 'Film content for SSM TikTok', done: false },
     { id: 'wg3', text: 'Apply for 3 more grants', done: true }]
-
   });
   const [draft, setDraft] = useState('');
+  const [archive, setArchive] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(GOALS_ARCHIVE_KEY) || '[]'); } catch { return []; }
+  });
+  const [showArchive, setShowArchive] = useState(false);
 
   useEffect(() => {
     const thisWeek = weekMonday();
     const lastWeek = localStorage.getItem(FOCUS_WEEK_KEY);
     if (lastWeek && lastWeek !== thisWeek) {
+      // Archive the previous week before wiping done flags
+      const raw = JSON.parse(localStorage.getItem('dash.weeklyFocus.v1') || 'null');
+      const prevGoals = raw?.goals || [];
+      if (prevGoals.length > 0) {
+        const prev = JSON.parse(localStorage.getItem(GOALS_ARCHIVE_KEY) || '[]');
+        if (!prev.some(a => a.weekOf === lastWeek)) {
+          const entry = {
+            weekOf: lastWeek,
+            goals: prevGoals.map(g => ({ text: g.text, done: g.done })),
+            completed: prevGoals.filter(g => g.done).length,
+            total: prevGoals.length,
+          };
+          const updated = [entry, ...prev].slice(0, 16);
+          localStorage.setItem(GOALS_ARCHIVE_KEY, JSON.stringify(updated));
+          setArchive(updated);
+        }
+      }
       setData(prev => ({ ...prev, goals: prev.goals.map(g => ({ ...g, done: false })) }));
     }
     localStorage.setItem(FOCUS_WEEK_KEY, thisWeek);
@@ -87,6 +108,36 @@ function WeeklyFocusModule() {
           <button type="submit" className="submit">Add</button>
         </form>
       </div>
+      {archive.length > 0 && (
+        <div style={{ marginTop: 12, borderTop: '1px solid var(--border-subtle)', paddingTop: 10 }}>
+          <button className="btn btn--ghost" style={{ fontSize: 11, padding: '2px 8px', marginBottom: showArchive ? 8 : 0 }} onClick={() => setShowArchive(s => !s)}>
+            {showArchive ? '▾' : '▸'} History ({archive.length} {archive.length === 1 ? 'week' : 'weeks'})
+          </button>
+          {showArchive && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {archive.map(entry => {
+                const allDone = entry.completed === entry.total && entry.total > 0;
+                return (
+                  <div key={entry.weekOf}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--fg-base)' }}>{fmtWeekLabel(new Date(entry.weekOf + 'T12:00:00'))}</span>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: allDone ? 'var(--fg-success)' : 'var(--fg-muted)' }}>{entry.completed}/{entry.total}</span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      {entry.goals.map((g, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 11.5 }}>
+                          <span style={{ color: g.done ? 'var(--fg-success)' : 'var(--fg-muted)', flexShrink: 0, marginTop: 1 }}>{g.done ? '✓' : '○'}</span>
+                          <span style={{ color: g.done ? 'var(--fg-base)' : 'var(--fg-muted)' }}>{g.text}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </Card>);
 
 }
@@ -996,6 +1047,88 @@ function FocusBucketsModule() {
 // EXPANDED HABIT TRACKER (for Habits view)
 // ============================================================
 const DAY_LETTERS_FULL = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const HEATMAP_MONTHS   = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const HEATMAP_DAYS     = ['M','','W','','F','','S'];
+
+function YearHeatmap({ habits }) {
+  const year = new Date().getFullYear();
+  const p2 = n => String(n).padStart(2, '0');
+  const isoOf = d => `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`;
+  const todayStr  = isoOf(new Date());
+  const yearStart = `${year}-01-01`;
+  const yearEnd   = `${year}-12-31`;
+
+  // Build week columns — align grid to Monday containing Jan 1
+  const weeks = useMemo(() => {
+    const jan1 = new Date(year, 0, 1);
+    const offset = (jan1.getDay() + 6) % 7;
+    const cur = new Date(jan1);
+    cur.setDate(1 - offset);
+    const result = [];
+    while (true) {
+      const week = Array.from({ length: 7 }, () => { const iso = isoOf(new Date(cur)); cur.setDate(cur.getDate() + 1); return iso; });
+      result.push(week);
+      if (week[6] >= yearEnd) break;
+    }
+    return result;
+  }, [year]);
+
+  const score = iso => habits.length ? habits.filter(h => h.days?.[iso]).length / habits.length : 0;
+
+  const cellColor = iso => {
+    if (iso < yearStart || iso > yearEnd) return 'transparent';
+    if (iso > todayStr) return 'rgba(0,0,0,0.04)';
+    const s = score(iso);
+    if (s === 0)   return 'var(--border-subtle)';
+    if (s < 0.34)  return 'rgba(89,45,130,0.22)';
+    if (s < 0.67)  return 'rgba(89,45,130,0.52)';
+    if (s < 1.0)   return 'rgba(89,45,130,0.78)';
+    return 'var(--ssm-eminence)';
+  };
+
+  const monthLabels = HEATMAP_MONTHS.map((label, m) => {
+    const firstOfMonth = `${year}-${p2(m+1)}-01`;
+    const wi = weeks.findIndex(w => w.includes(firstOfMonth));
+    return { label, wi };
+  }).filter(ml => ml.wi >= 0);
+
+  return (
+    <div style={{ marginTop: 20 }}>
+      <p style={{ fontSize: 10.5, letterSpacing: '0.18em', textTransform: 'uppercase', fontWeight: 600, color: 'var(--fg-muted)', margin: '0 0 6px' }}>
+        {year} · year in habits
+      </p>
+      <div style={{ overflowX: 'auto', paddingBottom: 4 }}>
+        <div style={{ display: 'flex', gap: 3, minWidth: 'max-content' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, paddingTop: 20, marginRight: 1 }}>
+            {HEATMAP_DAYS.map((d, i) => (
+              <div key={i} style={{ height: 11, width: 10, fontSize: 8, color: 'var(--fg-muted)', display: 'flex', alignItems: 'center' }}>{d}</div>
+            ))}
+          </div>
+          <div>
+            <div style={{ position: 'relative', height: 18, marginBottom: 2 }}>
+              {monthLabels.map(({ label, wi }) => (
+                <span key={label} style={{ position: 'absolute', left: wi * 13, fontSize: 9, color: 'var(--fg-muted)', whiteSpace: 'nowrap' }}>{label}</span>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 2 }}>
+              {weeks.map((week, wi) => (
+                <div key={wi} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {week.map(iso => {
+                    const n = habits.filter(h => h.days?.[iso]).length;
+                    const title = iso >= yearStart && iso <= todayStr ? `${iso}: ${n}/${habits.length} habits` : iso;
+                    return (
+                      <div key={iso} title={title} style={{ width: 11, height: 11, borderRadius: 2, background: cellColor(iso), outline: iso === todayStr ? '1.5px solid var(--ssm-eminence)' : 'none', outlineOffset: '-1px' }} />
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function HabitTrackerExpandedModule() {
   const [habits, setHabits] = useLocalState('dash.habits.v1', []);
@@ -1148,6 +1281,7 @@ function HabitTrackerExpandedModule() {
           <button type="submit" className="submit">Add</button>
         </form>
       )}
+      {habits.length > 0 && <YearHeatmap habits={habits} />}
     </Card>
   );
 }
