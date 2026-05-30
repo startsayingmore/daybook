@@ -11,7 +11,7 @@ const GIST_FILE    = 'daybook.json';
 const GIST_ID_KEY  = 'dash.gist.id';
 const GIST_PULLED_KEY = 'dash.gist.lastPulledAt'; // timestamp of last successful pull
 const GIST_SESSION_KEY = 'dash.gist.autoPullDone'; // sessionStorage — prevent reload loops
-const GIST_EXCLUDE = new Set([GIST_ID_KEY, GIST_PULLED_KEY, 'dash.gcal.tokenCache']);
+const GIST_EXCLUDE = new Set([GIST_ID_KEY, GIST_PULLED_KEY, 'dash.gcal.tokenCache', 'dash.tasks.weekOf']);
 
 // Token stored in localStorage under a non-dash key so it's never synced to Gist
 const GITHUB_TOKEN_KEY = 'daybook.githubToken';

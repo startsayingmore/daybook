@@ -165,12 +165,16 @@ function TasksModule() {
   const overdueCount = tasks.filter(isOverdue).length;
 
   const visible = useMemo(() => {
-    if (filter === 'done')    return tasks.filter(t => taskStatus(t) === 'done');
+    if (filter === 'done') {
+      const currentDone = tasks.filter(t => taskStatus(t) === 'done');
+      const archived = taskArchive.map(a => ({ ...a, status: 'done', done: true, _archived: true }));
+      return [...currentDone, ...archived].sort((a, b) => (b.completedOn || '').localeCompare(a.completedOn || ''));
+    }
     if (filter === 'open')    return tasks.filter(t => taskStatus(t) !== 'done');
     if (filter === 'doing')   return tasks.filter(t => taskStatus(t) === 'doing');
     if (filter === 'overdue') return tasks.filter(isOverdue);
     return tasks;
-  }, [tasks, filter, today]);
+  }, [tasks, taskArchive, filter, today]);
 
   const openCount  = tasks.filter(t => taskStatus(t) !== 'done').length;
   const doingCount = tasks.filter(t => taskStatus(t) === 'doing').length;
@@ -242,7 +246,7 @@ function TasksModule() {
         )}
         {visible.map(t => {
           const status = taskStatus(t);
-          const isEditing = editing === t.id;
+          const isEditing = editing === t.id && !t._archived;
           return (
             <div key={t.id} className={`task task--${status} ${status === 'done' ? 'is-done' : ''} ${isEditing ? 'is-editing' : ''} ${isOverdue(t) ? 'is-overdue' : ''}`}>
               {isEditing ? (
@@ -290,19 +294,20 @@ function TasksModule() {
                 <>
                   <button
                     className={`check check--${status}`}
-                    onClick={() => cycleStatus(t.id)}
-                    aria-label={`Status: ${STATUS_LABEL[status]}. Click to advance.`}
-                    title={`${STATUS_LABEL[status]} — click to advance`}
+                    onClick={() => !t._archived && cycleStatus(t.id)}
+                    aria-label={`Status: ${STATUS_LABEL[status]}`}
+                    title={t._archived ? 'Archived task' : `${STATUS_LABEL[status]} — click to advance`}
+                    style={t._archived ? { cursor: 'default', opacity: 0.6 } : {}}
                   >
                     {status === 'doing' && <span className="check__half" />}
                     <Icon name="check" />
                   </button>
-                  <div className="task__body" style={{ cursor: 'pointer' }} onClick={() => startEdit(t)}>
+                  <div className="task__body" style={{ cursor: t._archived ? 'default' : 'pointer' }} onClick={() => !t._archived && startEdit(t)}>
                     <span className="task__title">{t.title}</span>
                     <div className="task__meta">
-                      <span className={`task__tag tag--${t.tag}`}>{TAG_LABEL[t.tag]}</span>
-                      <span className={`task__status task__status--${status}`}>{STATUS_LABEL[status]}</span>
-                      {t.dueDate && (
+                      <span className={`task__tag tag--${t.tag}`}>{TAG_LABEL[t.tag] || t.tag}</span>
+                      <span className={`task__status task__status--${status}`}>{t._archived ? `Done ${t.completedOn ? new Date(t.completedOn + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}` : STATUS_LABEL[status]}</span>
+                      {!t._archived && t.dueDate && (
                         <span className={`task__due ${isOverdue(t) ? 'task__due--overdue' : ''}`}>
                           {isOverdue(t) ? '⚠ ' : ''}Due {new Date(t.dueDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                         </span>
@@ -311,9 +316,11 @@ function TasksModule() {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span className={`task__priority p-${t.priority}`}></span>
-                    <button className="task__delete" onClick={() => remove(t.id)} aria-label="delete">
-                      <Icon name="trash" />
-                    </button>
+                    {!t._archived && (
+                      <button className="task__delete" onClick={() => remove(t.id)} aria-label="delete">
+                        <Icon name="trash" />
+                      </button>
+                    )}
                   </div>
                 </>
               )}
