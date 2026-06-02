@@ -281,6 +281,17 @@ function MonthCalendarModule() {
   const [data, setData] = useLocalState('dash.monthCal.v1', { trackedDays: {} });
   const [view, setView] = useState(() => {const d = new Date();return { y: d.getFullYear(), m: d.getMonth() };});
 
+  // One-time cleanup: remove future dates seeded as demo data
+  useEffect(() => {
+    const today = todayISO();
+    const future = Object.keys(data.trackedDays).filter(k => k > today);
+    if (future.length) {
+      const cleaned = { ...data.trackedDays };
+      future.forEach(k => delete cleaned[k]);
+      setData({ ...data, trackedDays: cleaned });
+    }
+  }, []);
+
   const monthStart = new Date(view.y, view.m, 1);
   const daysInMonth = new Date(view.y, view.m + 1, 0).getDate();
   const startDow = (monthStart.getDay() + 6) % 7;
@@ -299,18 +310,6 @@ function MonthCalendarModule() {
     setData({ ...data, trackedDays: { ...data.trackedDays, [iso]: !data.trackedDays[iso] } });
   };
 
-  // Seed a few sessions for the current month on first load
-  useEffect(() => {
-    const key = `${view.y}-${String(view.m + 1).padStart(2, '0')}`;
-    const hasAny = Object.keys(data.trackedDays).some((k) => k.startsWith(key));
-    if (!hasAny && view.y === new Date().getFullYear() && view.m === new Date().getMonth()) {
-      const today = new Date();
-      const seeds = [11, 12, 13, 14, 15].map((d) => `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
-      const seeded = {};
-      seeds.forEach((s) => {seeded[s] = true;});
-      setData({ ...data, trackedDays: { ...data.trackedDays, ...seeded } });
-    }
-  }, []);
 
   return (
     <Card
