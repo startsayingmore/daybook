@@ -76,24 +76,42 @@ const taskStatus = (t) => t.status || (t.done ? 'done' : 'todo');
 const TASK_WEEK_KEY    = 'dash.tasks.weekOf';
 const TASK_ARCHIVE_KEY = 'dash.tasks.archive';
 
-const archiveTasks = (doneTasks) => {
-  if (!doneTasks.length) return;
-  const today = todayISO();
-  const week  = weekMonday();
-  const prev  = JSON.parse(localStorage.getItem(TASK_ARCHIVE_KEY) || '[]');
-  const entries = doneTasks.map(t => ({
-    id: 'a' + t.id + '_' + Date.now(),
-    title: t.title, tag: t.tag || '', priority: t.priority || 'mid',
-    completedWeek: week, completedOn: today,
-  }));
-  localStorage.setItem(TASK_ARCHIVE_KEY, JSON.stringify([...entries, ...prev].slice(0, 300)));
-};
 const weekMonday = () => {
   const d = new Date();
   const diff = d.getDay() === 0 ? -6 : 1 - d.getDay();
   d.setDate(d.getDate() + diff);
   // use local date parts — toISOString() would return UTC and shift the date after 7 PM CDT
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+// Returns the Monday of the week containing the given ISO date string
+const mondayOf = (isoDate) => {
+  const d = new Date(isoDate + 'T12:00:00');
+  const diff = d.getDay() === 0 ? -6 : 1 - d.getDay();
+  d.setDate(d.getDate() + diff);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+const archiveTasks = (doneTasks) => {
+  if (!doneTasks.length) return;
+  const thisWeek = weekMonday();
+  // Fallback for tasks with no doneAt: assume they were completed last week
+  const prevMonday = (() => {
+    const d = new Date(thisWeek + 'T12:00:00');
+    d.setDate(d.getDate() - 7);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  })();
+  const prev  = JSON.parse(localStorage.getItem(TASK_ARCHIVE_KEY) || '[]');
+  const entries = doneTasks.map(t => {
+    const completedOn   = t.doneAt || prevMonday;
+    const completedWeek = mondayOf(completedOn);
+    return {
+      id: 'a' + t.id + '_' + Date.now(),
+      title: t.title, tag: t.tag || '', priority: t.priority || 'mid',
+      completedWeek, completedOn,
+    };
+  });
+  localStorage.setItem(TASK_ARCHIVE_KEY, JSON.stringify([...entries, ...prev].slice(0, 300)));
 };
 
 function TasksModule() {
