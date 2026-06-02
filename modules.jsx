@@ -155,7 +155,14 @@ function TasksModule() {
   const startEdit = (t) => { setEditing(t.id); setEditDraft({ title: t.title, tag: t.tag, priority: t.priority, dueDate: t.dueDate || '' }); };
   const saveEdit = (id) => {
     if (!editDraft.title.trim()) return;
-    setTasks(tasks.map(t => t.id === id ? { ...t, ...editDraft, title: editDraft.title.trim() } : t));
+    const isArchived = taskArchive.some(a => a.id === id);
+    if (isArchived) {
+      const updated = taskArchive.map(a => a.id === id ? { ...a, title: editDraft.title.trim(), tag: editDraft.tag } : a);
+      localStorage.setItem(TASK_ARCHIVE_KEY, JSON.stringify(updated));
+      setTaskArchive(updated);
+    } else {
+      setTasks(tasks.map(t => t.id === id ? { ...t, ...editDraft, title: editDraft.title.trim() } : t));
+    }
     setEditing(null);
   };
 
@@ -245,7 +252,7 @@ function TasksModule() {
         )}
         {visible.map(t => {
           const status = taskStatus(t);
-          const isEditing = editing === t.id && !t._archived;
+          const isEditing = editing === t.id;
           return (
             <div key={t.id} className={`task task--${status} ${status === 'done' ? 'is-done' : ''} ${isEditing ? 'is-editing' : ''} ${isOverdue(t) ? 'is-overdue' : ''}`}>
               {isEditing ? (
@@ -266,26 +273,28 @@ function TasksModule() {
                     >
                       {Object.entries(TAG_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                     </select>
-                    <select
-                      value={editDraft.priority}
-                      onChange={e => setEditDraft(d => ({ ...d, priority: e.target.value }))}
-                      className="task__edit-select"
-                    >
-                      <option value="high">High</option>
-                      <option value="mid">Medium</option>
-                      <option value="low">Low</option>
-                    </select>
-                    <input
-                      type="date"
-                      value={editDraft.dueDate}
-                      onChange={e => setEditDraft(d => ({ ...d, dueDate: e.target.value }))}
-                      className="task__edit-select"
-                      title="Due date (optional)"
-                    />
+                    {!t._archived && <>
+                      <select
+                        value={editDraft.priority}
+                        onChange={e => setEditDraft(d => ({ ...d, priority: e.target.value }))}
+                        className="task__edit-select"
+                      >
+                        <option value="high">High</option>
+                        <option value="mid">Medium</option>
+                        <option value="low">Low</option>
+                      </select>
+                      <input
+                        type="date"
+                        value={editDraft.dueDate}
+                        onChange={e => setEditDraft(d => ({ ...d, dueDate: e.target.value }))}
+                        className="task__edit-select"
+                        title="Due date (optional)"
+                      />
+                    </>}
                     <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
                       <button onClick={() => saveEdit(t.id)} className="btn btn--primary" style={{ fontSize: 11, padding: '4px 12px' }}>Save</button>
                       <button onClick={() => setEditing(null)} className="btn btn--ghost" style={{ fontSize: 11, padding: '4px 10px' }}>Cancel</button>
-                      <button onClick={() => remove(t.id)} style={{ fontSize: 11, fontWeight: 600, color: 'var(--fg-error)', padding: '4px 10px', background: 'rgba(179,58,58,0.08)', borderRadius: 7 }}>Delete</button>
+                      {!t._archived && <button onClick={() => remove(t.id)} style={{ fontSize: 11, fontWeight: 600, color: 'var(--fg-error)', padding: '4px 10px', background: 'rgba(179,58,58,0.08)', borderRadius: 7 }}>Delete</button>}
                     </div>
                   </div>
                 </div>
@@ -301,7 +310,7 @@ function TasksModule() {
                     {status === 'doing' && <span className="check__half" />}
                     <Icon name="check" />
                   </button>
-                  <div className="task__body" style={{ cursor: t._archived ? 'default' : 'pointer' }} onClick={() => !t._archived && startEdit(t)}>
+                  <div className="task__body" style={{ cursor: 'pointer' }} onClick={() => startEdit(t)}>
                     <span className="task__title">{t.title}</span>
                     <div className="task__meta">
                       <span className={`task__tag tag--${t.tag}`}>{TAG_LABEL[t.tag] || t.tag}</span>
