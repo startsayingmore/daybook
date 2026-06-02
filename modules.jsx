@@ -179,6 +179,7 @@ function TasksModule() {
     if (filter === 'open')    return tasks.filter(t => taskStatus(t) !== 'done');
     if (filter === 'doing')   return tasks.filter(t => taskStatus(t) === 'doing');
     if (filter === 'overdue') return tasks.filter(isOverdue);
+    if (filter === 'history') return [];
     return tasks;
   }, [tasks, taskArchive, filter, today]);
 
