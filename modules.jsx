@@ -374,15 +374,19 @@ function TasksModule() {
       </div>
 
       {filter === 'history' && (() => {
-        if (!taskArchive.length) return (
+        const currentDone = tasks
+          .filter(t => taskStatus(t) === 'done')
+          .map(t => ({ ...t, completedOn: t.doneAt || todayISO() }));
+        const allDone = [...currentDone, ...taskArchive];
+        if (!allDone.length) return (
           <div className="empty" style={{ marginTop: 8 }}><strong>No history yet.</strong> Completed tasks are saved here each week.</div>
         );
         const weekOf = t => mondayOf(t.completedOn || t.completedWeek || todayISO());
-        const weeks = [...new Set(taskArchive.map(weekOf))].sort().reverse();
+        const weeks = [...new Set(allDone.map(weekOf))].sort().reverse();
         return (
           <div style={{ marginTop: 4 }}>
             {weeks.map(wk => {
-              const entries = taskArchive.filter(t => weekOf(t) === wk);
+              const entries = allDone.filter(t => weekOf(t) === wk);
               const d = new Date(wk + 'T12:00:00');
               const label = `Week of ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
               return (
