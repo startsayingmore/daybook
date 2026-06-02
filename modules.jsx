@@ -110,7 +110,7 @@ function TasksModule() {
   const [draftTag, setDraftTag] = useState('work');
   const [draftDate, setDraftDate] = useState('');
   const [editing, setEditing] = useState(null);
-  const [editDraft, setEditDraft] = useState({ title: '', tag: 'work', priority: 'mid', dueDate: '' });
+  const [editDraft, setEditDraft] = useState({ title: '', tag: 'work', priority: 'mid', dueDate: '', completedOn: '' });
 
   const [taskArchive, setTaskArchive] = useState(() => {
     try { return JSON.parse(localStorage.getItem(TASK_ARCHIVE_KEY) || '[]'); } catch { return []; }
@@ -152,16 +152,16 @@ function TasksModule() {
     setTasks(tasks.filter(t => t.id !== id));
     setEditing(null);
   };
-  const startEdit = (t) => { setEditing(t.id); setEditDraft({ title: t.title, tag: t.tag, priority: t.priority, dueDate: t.dueDate || '' }); };
+  const startEdit = (t) => { setEditing(t.id); setEditDraft({ title: t.title, tag: t.tag || 'work', priority: t.priority || 'mid', dueDate: t.dueDate || '', completedOn: t.completedOn || t.doneAt || '' }); };
   const saveEdit = (id) => {
     if (!editDraft.title.trim()) return;
     const isArchived = taskArchive.some(a => a.id === id);
     if (isArchived) {
-      const updated = taskArchive.map(a => a.id === id ? { ...a, title: editDraft.title.trim(), tag: editDraft.tag } : a);
+      const updated = taskArchive.map(a => a.id === id ? { ...a, title: editDraft.title.trim(), tag: editDraft.tag, completedOn: editDraft.completedOn || a.completedOn } : a);
       localStorage.setItem(TASK_ARCHIVE_KEY, JSON.stringify(updated));
       setTaskArchive(updated);
     } else {
-      setTasks(tasks.map(t => t.id === id ? { ...t, ...editDraft, title: editDraft.title.trim() } : t));
+      setTasks(tasks.map(t => t.id === id ? { ...t, ...editDraft, title: editDraft.title.trim(), doneAt: editDraft.completedOn || t.doneAt } : t));
     }
     setEditing(null);
   };
@@ -291,6 +291,15 @@ function TasksModule() {
                         title="Due date (optional)"
                       />
                     </>}
+                    {status === 'done' && (
+                      <input
+                        type="date"
+                        value={editDraft.completedOn}
+                        onChange={e => setEditDraft(d => ({ ...d, completedOn: e.target.value }))}
+                        className="task__edit-select"
+                        title="Completed on"
+                      />
+                    )}
                     <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
                       <button onClick={() => saveEdit(t.id)} className="btn btn--primary" style={{ fontSize: 11, padding: '4px 12px' }}>Save</button>
                       <button onClick={() => setEditing(null)} className="btn btn--ghost" style={{ fontSize: 11, padding: '4px 10px' }}>Cancel</button>
