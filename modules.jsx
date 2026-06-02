@@ -116,18 +116,17 @@ function TasksModule() {
     try { return JSON.parse(localStorage.getItem(TASK_ARCHIVE_KEY) || '[]'); } catch { return []; }
   });
 
-  // Archive done tasks and clear them at the start of each new week
+  // Archive done tasks completed before this week on every load
   useEffect(() => {
     const thisWeek = weekMonday();
-    const lastWeek = localStorage.getItem(TASK_WEEK_KEY);
-    if (!lastWeek || lastWeek !== thisWeek) {
-      const raw = JSON.parse(localStorage.getItem('dash.tasks.v1') || '[]');
-      const done = raw.filter(t => taskStatus(t) === 'done');
-      archiveTasks(done);
+    const raw = JSON.parse(localStorage.getItem('dash.tasks.v1') || '[]');
+    // Stale = done with no doneAt (pre-dates tracking) OR done before this week
+    const stale = raw.filter(t => taskStatus(t) === 'done' && (!t.doneAt || t.doneAt < thisWeek));
+    if (stale.length) {
+      archiveTasks(stale);
       setTaskArchive(JSON.parse(localStorage.getItem(TASK_ARCHIVE_KEY) || '[]'));
-      setTasks(prev => prev.filter(t => taskStatus(t) !== 'done'));
+      setTasks(prev => prev.filter(t => !(taskStatus(t) === 'done' && (!t.doneAt || t.doneAt < thisWeek))));
     }
-    localStorage.setItem(TASK_WEEK_KEY, thisWeek);
   }, []);
 
   const add = (e) => {
@@ -142,7 +141,7 @@ function TasksModule() {
     if (t.id !== id) return t;
     const cur = taskStatus(t);
     const next = STATUS_ORDER[(STATUS_ORDER.indexOf(cur) + 1) % STATUS_ORDER.length];
-    return { ...t, status: next, done: next === 'done' };
+    return { ...t, status: next, done: next === 'done', doneAt: next === 'done' ? todayISO() : undefined };
   }));
   const remove = (id) => {
     const t = tasks.find(t => t.id === id);
