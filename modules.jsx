@@ -120,7 +120,7 @@ function TasksModule() {
   useEffect(() => {
     const thisWeek = weekMonday();
     const lastWeek = localStorage.getItem(TASK_WEEK_KEY);
-    if (lastWeek && lastWeek !== thisWeek) {
+    if (!lastWeek || lastWeek !== thisWeek) {
       const raw = JSON.parse(localStorage.getItem('dash.tasks.v1') || '[]');
       const done = raw.filter(t => taskStatus(t) === 'done');
       archiveTasks(done);
