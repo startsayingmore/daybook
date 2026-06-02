@@ -350,7 +350,7 @@ function TasksModule() {
                     <span className="task__title">{t.title}</span>
                     <div className="task__meta">
                       <span className={`task__tag tag--${t.tag}`}>{TAG_LABEL[t.tag] || t.tag}</span>
-                      <span className={`task__status task__status--${status}`}>{t._archived ? `Done ${t.completedOn ? new Date(t.completedOn + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}` : STATUS_LABEL[status]}</span>
+                      <span className={`task__status task__status--${status}`}>{(() => { const dateStr = t.completedOn || t.doneAt; return status === 'done' && dateStr ? `Done ${new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : STATUS_LABEL[status]; })()}</span>
                       {!t._archived && t.dueDate && (
                         <span className={`task__due ${isOverdue(t) ? 'task__due--overdue' : ''}`}>
                           {isOverdue(t) ? '⚠ ' : ''}Due {new Date(t.dueDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
