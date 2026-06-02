@@ -79,12 +79,24 @@ function fetchInstagramFollowers(username) {
     }
 
     const html = res.getContentText();
-    const patterns = [
+
+    // og:description is server-rendered for link previews: "1,191 Followers, X Following..."
+    const ogMatch = html.match(/property="og:description"[^>]*content="([\d,]+)\s+Followers/i)
+                 || html.match(/content="([\d,]+)\s+Followers[^"]*"[^>]*property="og:description"/i);
+    if (ogMatch) return parseInt(ogMatch[1].replace(/,/g, ''));
+
+    // name="description" fallback
+    const metaMatch = html.match(/name="description"[^>]*content="([\d,]+)\s+Followers/i)
+                   || html.match(/content="([\d,]+)\s+Followers[^"]*"[^>]*name="description"/i);
+    if (metaMatch) return parseInt(metaMatch[1].replace(/,/g, ''));
+
+    // JSON fallbacks
+    const jsonPatterns = [
       /"follower_count":(\d+)/,
       /"edge_followed_by":\{"count":(\d+)\}/,
-      /"followers":(\d+)/
+      /"followersCount":(\d+)/
     ];
-    for (const p of patterns) {
+    for (const p of jsonPatterns) {
       const m = html.match(p);
       if (m) return parseInt(m[1]);
     }
@@ -98,34 +110,73 @@ function fetchInstagramFollowers(username) {
 }
 
 function fetchTikTokFollowers(username) {
+  // Try two user-agents — TikTok now serves a degraded page to Googlebot
+  const userAgents = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+  ];
+  for (const ua of userAgents) {
+    const result = _tryTikTok(username, ua);
+    if (result !== null) { console.log('TikTok matched with UA: ' + ua.slice(0, 40)); return result; }
+  }
+  console.warn('TikTok: no follower count pattern matched across all user-agents');
+  return null;
+}
+
+function _tryTikTok(username, userAgent) {
   try {
     const res = UrlFetchApp.fetch('https://www.tiktok.com/@' + username, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+        'User-Agent': userAgent,
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5'
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Cache-Control': 'no-cache',
       },
       muteHttpExceptions: true,
       followRedirects: true
     });
 
-    if (res.getResponseCode() !== 200) {
-      console.warn('TikTok HTTP ' + res.getResponseCode());
-      return null;
-    }
-
+    if (res.getResponseCode() !== 200) return null;
     const html = res.getContentText();
-    const patterns = [
-      /"followerCount":(\d+)/,
-      /"fans":(\d+)/,
-      /"userInteractionCount":(\d+)/
+
+    // Anchored to username — avoids matching other users' counts
+    const anchoredPatterns = [
+      new RegExp('"uniqueId":"' + username + '"[\\s\\S]{1,1200}?"followerCount":(\\d+)'),
+      new RegExp('"followerCount":(\\d+)[\\s\\S]{1,1200}?"uniqueId":"' + username + '"'),
+      new RegExp('"uniqueId":"' + username + '"[\\s\\S]{1,1200}?"fans":(\\d+)'),
     ];
-    for (const p of patterns) {
+    for (const p of anchoredPatterns) {
       const m = html.match(p);
       if (m) return parseInt(m[1]);
     }
 
-    console.warn('TikTok: no follower count pattern matched');
+    // __UNIVERSAL_DATA__ (newer TikTok structure)
+    const univMatch = html.match(/<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__"[^>]*>([\s\S]*?)<\/script>/);
+    if (univMatch) {
+      try {
+        const obj = JSON.parse(univMatch[1]);
+        const detail = obj?.['__DEFAULT_SCOPE__']?.['webapp.user-detail']?.userInfo;
+        if (detail?.stats?.followerCount !== undefined) return detail.stats.followerCount;
+      } catch (e) { console.warn('TikTok: __UNIVERSAL_DATA__ parse failed — ' + e.message); }
+    }
+
+    // SIGI_STATE (older TikTok structure)
+    const sigiMatch = html.match(/<script id="SIGI_STATE"[^>]*>([\s\S]*?)<\/script>/);
+    if (sigiMatch) {
+      try {
+        const sigi = JSON.parse(sigiMatch[1]);
+        const users = sigi.UserModule?.users || {};
+        const user  = users[username] || users[username.toLowerCase()];
+        if (user?.stats?.followerCount !== undefined) return user.stats.followerCount;
+      } catch (e) { console.warn('TikTok: SIGI_STATE parse failed — ' + e.message); }
+    }
+
+    // og:description: "1,305 Followers, X Following..."
+    const ogMatch = html.match(/property="og:description"[^>]*content="([\d,]+)\s+Followers/i)
+                 || html.match(/content="([\d,]+)\s+Followers[^"]*"[^>]*property="og:description"/i);
+    if (ogMatch) return parseInt(ogMatch[1].replace(/,/g, ''));
+
     return null;
   } catch (e) {
     console.error('TikTok fetch error: ' + e.message);
