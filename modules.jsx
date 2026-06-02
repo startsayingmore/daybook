@@ -134,16 +134,23 @@ function TasksModule() {
     try { return JSON.parse(localStorage.getItem(TASK_ARCHIVE_KEY) || '[]'); } catch { return []; }
   });
 
-  // Archive done tasks completed before this week on every load
+  // Archive done tasks from previous weeks
   useEffect(() => {
     const thisWeek = weekMonday();
+    const lastWeek = localStorage.getItem(TASK_WEEK_KEY);
+    const weekChanged = lastWeek !== thisWeek;
+    localStorage.setItem(TASK_WEEK_KEY, thisWeek);
+
     const raw = JSON.parse(localStorage.getItem('dash.tasks.v1') || '[]');
-    // Stale = done with no doneAt (pre-dates tracking) OR done before this week
-    const stale = raw.filter(t => taskStatus(t) === 'done' && (!t.doneAt || t.doneAt < thisWeek));
+    const stale = raw.filter(t => {
+      if (taskStatus(t) !== 'done') return false;
+      if (t.doneAt) return t.doneAt < thisWeek; // has date: archive only if before this week
+      return weekChanged;                        // no date: archive only at a week boundary, not every remount
+    });
     if (stale.length) {
       archiveTasks(stale);
       setTaskArchive(JSON.parse(localStorage.getItem(TASK_ARCHIVE_KEY) || '[]'));
-      setTasks(prev => prev.filter(t => !(taskStatus(t) === 'done' && (!t.doneAt || t.doneAt < thisWeek))));
+      setTasks(prev => prev.filter(t => !stale.some(s => s.id === t.id)));
     }
   }, []);
 
@@ -192,7 +199,8 @@ function TasksModule() {
     if (filter === 'done') {
       const currentDone = tasks.filter(t => taskStatus(t) === 'done');
       const archived = taskArchive.map(a => ({ ...a, status: 'done', done: true, _archived: true }));
-      return [...currentDone, ...archived].sort((a, b) => (b.completedOn || '').localeCompare(a.completedOn || ''));
+      const sortKey = t => t.completedOn || t.doneAt || '';
+      return [...currentDone, ...archived].sort((a, b) => sortKey(b).localeCompare(sortKey(a)));
     }
     if (filter === 'open')    return tasks.filter(t => taskStatus(t) !== 'done');
     if (filter === 'doing')   return tasks.filter(t => taskStatus(t) === 'doing');
