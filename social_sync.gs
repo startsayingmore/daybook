@@ -62,43 +62,58 @@ function syncSocialFollowers() {
 }
 
 function fetchInstagramFollowers(username) {
+  // Approach 1: internal JSON API (doesn't serve a challenge page like the HTML profile)
+  try {
+    const apiRes = UrlFetchApp.fetch('https://i.instagram.com/api/v1/users/web_profile_info/?username=' + username, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
+        'x-ig-app-id': '936619743392459',
+        'Accept': 'application/json, text/plain, */*',
+        'Referer': 'https://www.instagram.com/',
+      },
+      muteHttpExceptions: true,
+      followRedirects: true
+    });
+    if (apiRes.getResponseCode() === 200) {
+      const json = JSON.parse(apiRes.getContentText());
+      const count = json?.data?.user?.edge_followed_by?.count;
+      if (count !== undefined) { console.log('Instagram via API: ' + count); return count; }
+    } else {
+      console.warn('Instagram API HTTP ' + apiRes.getResponseCode());
+    }
+  } catch (e) { console.warn('Instagram API error: ' + e.message); }
+
+  // Approach 2: HTML profile page with Chrome UA
   try {
     const res = UrlFetchApp.fetch('https://www.instagram.com/' + username + '/', {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5'
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Referer': 'https://www.google.com/',
       },
       muteHttpExceptions: true,
       followRedirects: true
     });
 
     if (res.getResponseCode() !== 200) {
-      console.warn('Instagram HTTP ' + res.getResponseCode());
+      console.warn('Instagram HTML HTTP ' + res.getResponseCode());
       return null;
     }
 
     const html = res.getContentText();
 
-    // og:description is server-rendered for link previews: "1,191 Followers, X Following..."
-    const ogMatch = html.match(/property="og:description"[^>]*content="([\d,]+)\s+Followers/i)
-                 || html.match(/content="([\d,]+)\s+Followers[^"]*"[^>]*property="og:description"/i);
-    if (ogMatch) return parseInt(ogMatch[1].replace(/,/g, ''));
-
-    // name="description" fallback
-    const metaMatch = html.match(/name="description"[^>]*content="([\d,]+)\s+Followers/i)
-                   || html.match(/content="([\d,]+)\s+Followers[^"]*"[^>]*name="description"/i);
-    if (metaMatch) return parseInt(metaMatch[1].replace(/,/g, ''));
-
-    // JSON fallbacks
-    const jsonPatterns = [
+    const patterns = [
+      /property="og:description"[^>]*content="([\d,]+)\s+Followers/i,
+      /content="([\d,]+)\s+Followers[^"]*"[^>]*property="og:description"/i,
+      /name="description"[^>]*content="([\d,]+)\s+Followers/i,
       /"follower_count":(\d+)/,
       /"edge_followed_by":\{"count":(\d+)\}/,
-      /"followersCount":(\d+)/
+      /"followersCount":(\d+)/,
     ];
-    for (const p of jsonPatterns) {
+    for (const p of patterns) {
       const m = html.match(p);
-      if (m) return parseInt(m[1]);
+      if (m) return parseInt(m[1].replace(/,/g, ''));
     }
 
     console.warn('Instagram: no follower count pattern matched');
@@ -188,4 +203,47 @@ function _tryTikTok(username, userAgent) {
 function testFetch() {
   console.log('Instagram: ' + fetchInstagramFollowers('startsayingmore'));
   console.log('TikTok:    ' + fetchTikTokFollowers('startsayingmore'));
+}
+
+// Run this if testFetch() returns null — logs what each platform is actually serving
+function debugFetch() {
+  // Instagram internal API
+  const igApi = UrlFetchApp.fetch('https://i.instagram.com/api/v1/users/web_profile_info/?username=startsayingmore', {
+    headers: { 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15', 'x-ig-app-id': '936619743392459' },
+    muteHttpExceptions: true
+  });
+  console.log('IG API status: ' + igApi.getResponseCode());
+  console.log('IG API body:   ' + igApi.getContentText().slice(0, 400));
+
+  // Instagram HTML — search for specific patterns
+  const igHtml = UrlFetchApp.fetch('https://www.instagram.com/startsayingmore/', {
+    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
+    muteHttpExceptions: true
+  });
+  const igBody = igHtml.getContentText();
+  console.log('IG HTML status: ' + igHtml.getResponseCode() + ' (' + igBody.length + ' chars)');
+  ['edge_followed_by', 'follower_count', 'followersCount', 'og:description', '_sharedData', 'followerCount'].forEach(function(pat) {
+    var idx = igBody.indexOf(pat);
+    if (idx >= 0) {
+      console.log('IG HAS "' + pat + '" @ ' + idx + ': ' + igBody.slice(Math.max(0, idx - 10), idx + 150));
+    } else {
+      console.log('IG missing: "' + pat + '"');
+    }
+  });
+
+  // TikTok — search for specific patterns
+  const tt = UrlFetchApp.fetch('https://www.tiktok.com/@startsayingmore', {
+    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
+    muteHttpExceptions: true
+  });
+  const ttBody = tt.getContentText();
+  console.log('TT status: ' + tt.getResponseCode() + ' (' + ttBody.length + ' chars)');
+  ['__UNIVERSAL_DATA_FOR_REHYDRATION__', 'SIGI_STATE', 'followerCount', 'uniqueId', 'startsayingmore'].forEach(function(pat) {
+    var idx = ttBody.indexOf(pat);
+    if (idx >= 0) {
+      console.log('TT HAS "' + pat + '" @ ' + idx + ': ' + ttBody.slice(Math.max(0, idx - 10), idx + 250));
+    } else {
+      console.log('TT missing: "' + pat + '"');
+    }
+  });
 }
