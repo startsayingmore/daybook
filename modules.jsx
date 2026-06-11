@@ -470,13 +470,15 @@ function HabitsModule() {
   const [newDraft, setNewDraft] = useState({ name: '', glyph: '' });
   const [weekOffset, setWeekOffset] = useState(0);
 
-  const week = weekDates(weekOffset);
+  const weekAnchor = new Date(); weekAnchor.setDate(weekAnchor.getDate() - weekOffset * 7);
+  const prevAnchor = new Date(); prevAnchor.setDate(prevAnchor.getDate() - (weekOffset + 1) * 7);
+  const week = weekDates(weekAnchor);
   const todayI = todayISO();
 
   // Weekly trend score — use the same `week` array the streak dots render from
   const todayIdx  = week.indexOf(todayI);
   const elapsed   = weekOffset > 0 ? 7 : (todayIdx >= 0 ? todayIdx + 1 : 7);
-  const prevWeek  = weekDates(weekOffset + 1);
+  const prevWeek  = weekDates(prevAnchor);
   const scoreCur  = habits.reduce((s, h) => s + week.slice(0, elapsed).filter(d => !!h.days?.[d]).length, 0);
   const scorePrev = habits.reduce((s, h) => s + prevWeek.slice(0, elapsed).filter(d => !!h.days?.[d]).length, 0);
   const possible  = habits.length * elapsed;
