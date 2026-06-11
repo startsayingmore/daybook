@@ -468,14 +468,15 @@ function HabitsModule() {
   const [draft, setDraft] = useState({ name: '', glyph: '' });
   const [adding, setAdding] = useState(false);
   const [newDraft, setNewDraft] = useState({ name: '', glyph: '' });
+  const [weekOffset, setWeekOffset] = useState(0);
 
-  const week = weekDates();
+  const week = weekDates(weekOffset);
   const todayI = todayISO();
 
   // Weekly trend score — use the same `week` array the streak dots render from
   const todayIdx  = week.indexOf(todayI);
-  const elapsed   = todayIdx >= 0 ? todayIdx + 1 : 7;
-  const prevWeek  = weekDates(1);
+  const elapsed   = weekOffset > 0 ? 7 : (todayIdx >= 0 ? todayIdx + 1 : 7);
+  const prevWeek  = weekDates(weekOffset + 1);
   const scoreCur  = habits.reduce((s, h) => s + week.slice(0, elapsed).filter(d => !!h.days?.[d]).length, 0);
   const scorePrev = habits.reduce((s, h) => s + prevWeek.slice(0, elapsed).filter(d => !!h.days?.[d]).length, 0);
   const possible  = habits.length * elapsed;
@@ -505,15 +506,41 @@ function HabitsModule() {
     <Card
       cls="m-habits"
       title="Habits"
-      count={<span>{scoreCur}/{possible} this week <span style={{ color: trendClr, fontWeight: 700 }}>{trend}</span></span>}
+      count={<span>{scoreCur}/{possible} {weekOffset === 0 ? 'this week' : weekOffset === 1 ? 'last week' : `${weekOffset}w ago`} <span style={{ color: trendClr, fontWeight: 700 }}>{trend}</span></span>}
       action={
-        <button
-          className="btn btn--ghost"
-          style={{ fontSize: 11, padding: '4px 10px' }}
-          onClick={() => setAdding(a => !a)}
-        >
-          {adding ? 'Cancel' : '+ Add'}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <button
+            className="btn btn--ghost"
+            style={{ fontSize: 11, padding: '4px 8px' }}
+            onClick={() => setWeekOffset(o => o + 1)}
+            title="Previous week"
+          >←</button>
+          {weekOffset > 0 && (
+            <button
+              className="btn btn--ghost"
+              style={{ fontSize: 11, padding: '4px 8px' }}
+              onClick={() => setWeekOffset(0)}
+              title="Back to this week"
+            >This week</button>
+          )}
+          {weekOffset > 0 && (
+            <button
+              className="btn btn--ghost"
+              style={{ fontSize: 11, padding: '4px 8px' }}
+              onClick={() => setWeekOffset(o => Math.max(0, o - 1))}
+              title="Next week"
+            >→</button>
+          )}
+          {weekOffset === 0 && (
+            <button
+              className="btn btn--ghost"
+              style={{ fontSize: 11, padding: '4px 10px' }}
+              onClick={() => setAdding(a => !a)}
+            >
+              {adding ? 'Cancel' : '+ Add'}
+            </button>
+          )}
+        </div>
       }
     >
       <div className="habits">
