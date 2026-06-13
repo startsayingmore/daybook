@@ -1503,7 +1503,6 @@ function WeekView({ nowMinutes }) {
       <ScheduleModule nowMinutes={nowMinutes} />
       <HabitsModule />
       <WaterModule />
-      <CurrentlyReadingModule />
       <UpcomingEventsModule />
       <FinancesModule compact />
       <SocialModule />
