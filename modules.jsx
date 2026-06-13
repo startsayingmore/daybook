@@ -1112,8 +1112,53 @@ function LinksModule() {
 }
 
 // expose to global scope so app.jsx can use them
+// ============================================================
+// WATER TRACKER
+// ============================================================
+const WATER_GOAL = 8;
+
+function WaterModule() {
+  const [data, setData] = useLocalState('dash.water.v1', {});
+  const todayI = todayISO();
+  const today = Math.min(data[todayI] || 0, WATER_GOAL);
+  const week = weekDates(new Date());
+
+  const tap = (i) => setData({ ...data, [todayI]: i < today ? i : i + 1 });
+
+  return (
+    <Card cls="m-water" title="Water" count={`${today} / ${WATER_GOAL} cups`}>
+      <div className="water-drops">
+        {Array.from({ length: WATER_GOAL }, (_, i) => (
+          <button
+            key={i}
+            className={`water-drop${i < today ? ' is-filled' : ''}`}
+            onClick={() => tap(i)}
+            title={`${i < today ? i : i + 1} cup${(i < today ? i : i + 1) !== 1 ? 's' : ''}`}
+          />
+        ))}
+      </div>
+      <div className="water-week">
+        {week.map((iso, i) => {
+          const cups = Math.min(data[iso] || 0, WATER_GOAL);
+          return (
+            <div key={iso} className="water-week__col">
+              <div className="water-week__bar">
+                <div className="water-week__fill" style={{ height: `${cups / WATER_GOAL * 100}%` }} />
+              </div>
+              <span className={`water-week__lbl${iso === todayI ? ' is-today' : ''}`}>
+                {DAY_LETTERS[i]}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
 Object.assign(window, {
   TasksModule, HabitsModule, ScheduleModule, GoalsModule, NotesModule, LinksModule,
+  WaterModule,
   Icon, useLocalState, todayISO, Card,
   parseGoalMetric, setGoalDone,
 });

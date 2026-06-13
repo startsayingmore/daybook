@@ -1,6 +1,6 @@
 /* global React */
 /* global Card, Icon, useLocalState, todayISO */
-/* global TasksModule, HabitsModule, ScheduleModule, GoalsModule, LinksModule, SocialModule */
+/* global TasksModule, HabitsModule, ScheduleModule, GoalsModule, LinksModule, SocialModule, WaterModule */
 /* global parseGoalMetric, setGoalDone */
 const { useState, useEffect, useMemo, useRef } = React;
 
@@ -1502,6 +1502,7 @@ function WeekView({ nowMinutes }) {
       <TasksModule />
       <ScheduleModule nowMinutes={nowMinutes} />
       <HabitsModule />
+      <WaterModule />
       <CurrentlyReadingModule />
       <UpcomingEventsModule />
       <FinancesModule compact />
@@ -1545,6 +1546,7 @@ function YearView() {
 function HabitsView() {
   return (
     <div className="grid grid--single">
+      <WaterModule />
       <HabitTrackerExpandedModule />
     </div>);
 

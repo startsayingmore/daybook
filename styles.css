@@ -1277,6 +1277,7 @@ input, textarea {
 .grid--week .m-finance { grid-column: span 5; }
 .grid--week .m-social  { grid-column: span 12; }
 .grid--week .m-links   { grid-column: span 12; }
+.grid--week .m-water   { grid-column: span 5; }
 
 /* MONTH */
 .grid--month {
@@ -2396,6 +2397,64 @@ input, textarea {
 }
 
 /* ============================================================
+   WATER TRACKER
+   ============================================================ */
+.water-drops {
+  display: flex;
+  gap: 6px;
+  margin: 12px 0 14px;
+}
+.water-drop {
+  flex: 1;
+  aspect-ratio: 1;
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  border: 1.5px solid var(--border-default);
+  background: transparent;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease, transform 100ms ease;
+}
+.water-drop:hover { border-color: #4A9EC4; transform: scale(1.1); }
+.water-drop.is-filled { background: #4A9EC4; border-color: #4A9EC4; }
+.water-week {
+  display: flex;
+  gap: 4px;
+  height: 48px;
+  align-items: flex-end;
+}
+.water-week__col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  height: 100%;
+}
+.water-week__bar {
+  flex: 1;
+  width: 100%;
+  background: var(--ssm-eminence-tint);
+  border-radius: 4px 4px 2px 2px;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+.water-week__fill {
+  width: 100%;
+  background: #4A9EC4;
+  border-radius: 3px 3px 2px 2px;
+  transition: height 300ms var(--ease-out);
+}
+.water-week__lbl {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  line-height: 1;
+}
+.water-week__lbl.is-today { color: var(--ssm-eminence); }
+
+/* ============================================================
    Responsive
    ============================================================ */
 @media (max-width: 980px) {
@@ -2410,7 +2469,8 @@ input, textarea {
   .grid--week .m-events,
   .grid--week .m-finance,
   .grid--week .m-social,
-  .grid--week .m-links { grid-column: span 6; }
+  .grid--week .m-links,
+  .grid--week .m-water { grid-column: span 6; }
   .grid--quarter .m-gymconsist,
   .grid--quarter .m-finance,
   .grid--quarter .m-qgoals,
