@@ -35,8 +35,13 @@ const currentQuarter = (d = new Date()) => ({
 // ============================================================
 // WEEKLY FOCUS
 // ============================================================
-const FOCUS_WEEK_KEY    = 'dash.focus.weekOf';
-const GOALS_ARCHIVE_KEY = 'dash.goals.archive';
+const FOCUS_WEEK_KEY      = 'dash.focus.weekOf';
+const GOALS_ARCHIVE_KEY   = 'dash.goals.archive';
+const QGOALS_ARCHIVE_KEY  = 'dash.qGoals.archive.v1';
+const QGOALS_CURRENT_Q    = 'dash.qGoals.currentQ';
+const quarterLabel = (q, yr) => `${yr}-Q${q}`;
+const fmtShortDate = (iso) =>
+  iso ? new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
 
 function WeeklyFocusModule() {
   const [data, setData] = useLocalState('dash.weeklyFocus.v1', {
@@ -584,24 +589,42 @@ function FinancesModule({ compact = false }) {
 const QGOAL_TABS = ['Finance', 'Health', 'Business', 'Personal'];
 function QuarterlyGoalsModule() {
   const { q, year } = currentQuarter();
+  const thisQ = quarterLabel(q, year);
   const [goals, setGoals] = useLocalState('dash.qGoals.v1', [
-  { id: 'qg1', tab: 'Finance', text: 'Pay off $6,000 in debt', done: false, progress: 0, metric: '' },
-  { id: 'qg2', tab: 'Finance', text: 'Hit $8k in emergency fund', done: false, progress: 0, metric: '' },
-  { id: 'qg3', tab: 'Health', text: 'Hit 60 gym sessions', done: false, progress: 0, metric: '' },
-  { id: 'qg4', tab: 'Business', text: 'Launch SSM v2 onboarding', done: false, progress: 0, metric: '' },
-  { id: 'qg5', tab: 'Personal', text: 'Read 6 books', done: true, progress: 100, metric: '6 of 6' }]
+  { id: 'qg1', tab: 'Finance', text: 'Pay off $6,000 in debt', done: false, progress: 0, metric: '', completedOn: null },
+  { id: 'qg2', tab: 'Finance', text: 'Hit $8k in emergency fund', done: false, progress: 0, metric: '', completedOn: null },
+  { id: 'qg3', tab: 'Health', text: 'Hit 60 gym sessions', done: false, progress: 0, metric: '', completedOn: null },
+  { id: 'qg4', tab: 'Business', text: 'Launch SSM v2 onboarding', done: false, progress: 0, metric: '', completedOn: null },
+  { id: 'qg5', tab: 'Personal', text: 'Read 6 books', done: true, progress: 100, metric: '6 of 6', completedOn: null }]
   );
+  const [archivedGoals, setArchivedGoals] = useLocalState(QGOALS_ARCHIVE_KEY, []);
   const [tab, setTab] = useState('Finance');
   const [draft, setDraft] = useState('');
   const [editing, setEditing] = useState(null);
   const [editDraft, setEditDraft] = useState({ text: '', metric: '' });
+
+  // Quarter rollover: archive done goals, flag incomplete as overdue
+  useEffect(() => {
+    const stored = localStorage.getItem(QGOALS_CURRENT_Q);
+    if (stored && stored !== thisQ) {
+      const today = todayISO();
+      const toArchive = [], toKeep = [];
+      goals.forEach(g => {
+        if (g.done) toArchive.push({ ...g, archivedQ: stored, completedOn: g.completedOn || today });
+        else toKeep.push({ ...g, overdue: true, overdueQ: stored });
+      });
+      if (toArchive.length > 0) setArchivedGoals(prev => [...toArchive, ...prev]);
+      setGoals(toKeep);
+    }
+    localStorage.setItem(QGOALS_CURRENT_Q, thisQ);
+  }, [thisQ]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const visible = goals.filter((g) => g.tab === tab);
   const complete = goals.filter((g) => g.done).length;
 
   const add = () => {
     const v = draft.trim(); if (!v) return;
-    setGoals([...goals, { id: 'qg' + Date.now(), tab, text: v, done: false, progress: 0, metric: '' }]);
+    setGoals([...goals, { id: 'qg' + Date.now(), tab, text: v, done: false, progress: 0, metric: '', completedOn: null }]);
     setDraft('');
   };
   const startEdit = (g) => { setEditing(g.id); setEditDraft({ text: g.text, metric: g.metric || '' }); };
@@ -611,7 +634,8 @@ function QuarterlyGoalsModule() {
       if (g.id !== id) return g;
       const parsed = parseGoalMetric(editDraft.metric);
       const progress = parsed ? Math.round(parsed.done / parsed.total * 100) : g.progress;
-      return { ...g, text: editDraft.text.trim(), metric: editDraft.metric, progress, done: progress === 100 };
+      const done = progress === 100;
+      return { ...g, text: editDraft.text.trim(), metric: editDraft.metric, progress, done, completedOn: done ? (g.completedOn || todayISO()) : null };
     }));
     setEditing(null);
   };
@@ -622,14 +646,21 @@ function QuarterlyGoalsModule() {
       if (parsed) {
         const newDone = Math.round(pct / 100 * parsed.total);
         const newMetric = setGoalDone(g.metric, newDone);
-        return { ...g, metric: newMetric, progress: Math.round(Math.max(0, Math.min(parsed.total, newDone)) / parsed.total * 100), done: pct === 100 };
+        const newPct = Math.round(Math.max(0, Math.min(parsed.total, newDone)) / parsed.total * 100);
+        return { ...g, metric: newMetric, progress: newPct, done: newPct === 100, completedOn: newPct === 100 ? (g.completedOn || todayISO()) : null };
       }
-      return { ...g, progress: pct, done: pct === 100 };
+      return { ...g, progress: pct, done: pct === 100, completedOn: pct === 100 ? (g.completedOn || todayISO()) : null };
     }));
   };
   const toggleDone = (id) => {
-    setGoals(goals.map((g) => g.id === id ? { ...g, done: !g.done, progress: !g.done ? 100 : g.progress } : g));
+    setGoals(goals.map((g) => {
+      if (g.id !== id) return g;
+      const newDone = !g.done;
+      return { ...g, done: newDone, progress: newDone ? 100 : g.progress, completedOn: newDone ? (g.completedOn || todayISO()) : null };
+    }));
   };
+
+  const visibleArchive = archivedGoals.filter(g => g.tab === tab);
 
   return (
     <Card cls="m-qgoals" title="Quarterly goals" count={`Q${q} ${year} · ${complete}/${goals.length} complete`}>
@@ -639,13 +670,13 @@ function QuarterlyGoalsModule() {
         )}
       </div>
       <div className="task-list" style={{ maxHeight: 280 }}>
-        {visible.length === 0 && <div className="empty"><strong>No {tab.toLowerCase()} goals yet.</strong> Add your first one below.</div>}
+        {visible.length === 0 && visibleArchive.length === 0 && <div className="empty"><strong>No {tab.toLowerCase()} goals yet.</strong> Add your first one below.</div>}
         {visible.map((g) => {
           const parsed = parseGoalMetric(g.metric);
           const pct = parsed ? Math.round(parsed.done / parsed.total * 100) : (g.progress ?? (g.done ? 100 : 0));
           const isEditing = editing === g.id;
           return (
-            <div key={g.id} className={`task ${g.done ? 'is-done' : ''}`} style={{ display: 'block', padding: '8px 6px' }}>
+            <div key={g.id} className={`task ${g.done ? 'is-done' : ''} ${g.overdue && !g.done ? 'is-overdue' : ''}`} style={{ display: 'block', padding: '8px 6px' }}>
               {isEditing ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                   <input
@@ -670,7 +701,7 @@ function QuarterlyGoalsModule() {
                 </div>
               ) : (
                 <>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: g.metric || g.overdue || g.done ? 6 : 0 }}>
                     <button className={`check check--${g.done ? 'done' : 'todo'}`} onClick={() => toggleDone(g.id)} style={{ flexShrink: 0 }}>
                       <Icon name="check" />
                     </button>
@@ -688,19 +719,46 @@ function QuarterlyGoalsModule() {
                       <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ssm-eminence)', minWidth: 32, textAlign: 'right' }}>{pct}%</span>
                     </div>
                   </div>
-                  <div
-                    className="goal__bar"
-                    style={{ cursor: 'pointer', marginLeft: 32 }}
-                    onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setProgress(g.id, Math.round(((e.clientX - r.left) / r.width) * 100)); }}
-                    title="Click to set progress"
-                  >
-                    <div className="goal__fill" style={{ width: `${pct}%` }} />
-                  </div>
+                  {(g.metric || g.overdue || g.done) && (
+                    <div style={{ marginLeft: 32 }}>
+                      <div
+                        className="goal__bar"
+                        style={{ cursor: 'pointer' }}
+                        onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setProgress(g.id, Math.round(((e.clientX - r.left) / r.width) * 100)); }}
+                        title="Click to set progress"
+                      >
+                        <div className="goal__fill" style={{ width: `${pct}%` }} />
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3, fontSize: 11 }}>
+                        <span style={{ color: 'var(--fg-muted)' }}>{g.metric}</span>
+                        {g.done && g.completedOn && (
+                          <span style={{ fontWeight: 600, color: 'var(--ssm-eminence)' }}>✓ Done {fmtShortDate(g.completedOn)}</span>
+                        )}
+                        {g.overdue && !g.done && (
+                          <span style={{ fontWeight: 700, color: 'var(--fg-error)', background: 'rgba(192,57,43,0.1)', borderRadius: 6, padding: '1px 6px' }}>
+                            Overdue · {g.overdueQ}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
             </div>
           );
         })}
+
+        {visibleArchive.length > 0 && (
+          <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border-subtle)' }}>
+            <p style={{ margin: '0 0 6px', fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fg-muted)' }}>Past quarters</p>
+            {visibleArchive.map(g => (
+              <div key={g.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', fontSize: 12, color: 'var(--fg-muted)', gap: 8 }}>
+                <span style={{ textDecoration: 'line-through', flex: 1, minWidth: 0 }}>{g.text}</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ssm-eminence)', flexShrink: 0 }}>✓ {fmtShortDate(g.completedOn)}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
       <form className="task-input task-input--mini" onSubmit={(e) => { e.preventDefault(); add(); }}>
         <Icon name="plus" />

@@ -807,18 +807,39 @@ const setGoalDone = (unit, newDone) => {
   return unit.slice(0, m.start) + `${clamped}${sep}${totalRaw}` + unit.slice(m.end);
 };
 
+const parseDeadlineDate = (s) => {
+  if (!s || /^ongoing$/i.test(s.trim())) return null;
+  const d = new Date(`${s.trim()} ${new Date().getFullYear()}`);
+  return isNaN(d.getTime()) ? null : d;
+};
+const fmtGoalDate = (iso) =>
+  iso ? new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+
 function GoalsModule() {
   const [goals, setGoals] = useLocalState('dash.goals.v1', [
-    { id: 'g1', title: 'Ship dashboard v1 to GitHub', progress: 78, deadline: 'May 24', unit: 'Step 7 of 9' },
-    { id: 'g2', title: 'Run a 10K (sub-60)', progress: 42, deadline: 'Jun 30', unit: '21 / 50 runs' },
-    { id: 'g3', title: 'Finish "Quiet" by Susan Cain', progress: 65, deadline: 'May 28', unit: 'Ch. 6 of 9' },
-    { id: 'g4', title: 'Write therapy reflection weekly', progress: 25, deadline: 'Ongoing', unit: '3 / 12 weeks' },
+    { id: 'g1', title: 'Ship dashboard v1 to GitHub', progress: 78, deadline: 'May 24', unit: 'Step 7 of 9', completedOn: null },
+    { id: 'g2', title: 'Run a 10K (sub-60)', progress: 42, deadline: 'Jun 30', unit: '21 / 50 runs', completedOn: null },
+    { id: 'g3', title: 'Finish "Quiet" by Susan Cain', progress: 65, deadline: 'May 28', unit: 'Ch. 6 of 9', completedOn: null },
+    { id: 'g4', title: 'Write therapy reflection weekly', progress: 25, deadline: 'Ongoing', unit: '3 / 12 weeks', completedOn: null },
   ]);
 
   const [editing, setEditing] = useState(null);
   const [draft, setDraft] = useState({ title: '', deadline: '', unit: '' });
   const [adding, setAdding] = useState(false);
   const [newDraft, setNewDraft] = useState({ title: '', deadline: '', unit: '' });
+
+  useEffect(() => {
+    const today = todayISO();
+    let dirty = false;
+    const next = goals.map(g => {
+      const m = parseGoalMetric(g.unit);
+      const pct = m ? Math.round(m.done / m.total * 100) : (g.progress ?? 0);
+      if (pct >= 100 && !g.completedOn) { dirty = true; return { ...g, completedOn: today }; }
+      if (pct < 100 && g.completedOn) { dirty = true; return { ...g, completedOn: null }; }
+      return g;
+    });
+    if (dirty) setGoals(next);
+  }, [goals]);
 
   const startEdit = (g) => { setEditing(g.id); setDraft({ title: g.title, deadline: g.deadline, unit: g.unit }); };
   const saveEdit = (id) => {
@@ -831,16 +852,111 @@ function GoalsModule() {
   const addGoal = (e) => {
     e?.preventDefault?.();
     if (!newDraft.title.trim()) return;
-    setGoals([...goals, { id: 'g' + Date.now(), title: newDraft.title.trim(), progress: 0, deadline: newDraft.deadline.trim() || 'Ongoing', unit: newDraft.unit.trim() || '' }]);
+    setGoals([...goals, { id: 'g' + Date.now(), title: newDraft.title.trim(), progress: 0, deadline: newDraft.deadline.trim() || 'Ongoing', unit: newDraft.unit.trim() || '', completedOn: null }]);
     setNewDraft({ title: '', deadline: '', unit: '' });
     setAdding(false);
+  };
+
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  const getPct = (g) => { const m = parseGoalMetric(g.unit); return m ? Math.round(m.done / m.total * 100) : (g.progress ?? 0); };
+  const activeGoals = goals.filter(g => getPct(g) < 100);
+  const doneGoals   = goals.filter(g => getPct(g) >= 100);
+
+  const renderGoalRow = (g, isDoneSection = false) => {
+    const isEditing = editing === g.id;
+    const metric = parseGoalMetric(g.unit);
+    const pct = metric ? Math.round(metric.done / metric.total * 100) : (g.progress ?? 0);
+    const deadlineDate = parseDeadlineDate(g.deadline);
+    const overdue = !isDoneSection && deadlineDate && deadlineDate < now;
+    const bumpDone = (delta) => {
+      if (!metric) return;
+      setGoals(goals.map(x => x.id === g.id ? { ...x, unit: setGoalDone(x.unit, metric.done + delta), progress: Math.round(Math.max(0, Math.min(metric.total, metric.done + delta)) / metric.total * 100) } : x));
+    };
+    const setFromBar = (newPct) => {
+      if (metric) {
+        const newDone = Math.round(newPct / 100 * metric.total);
+        setGoals(goals.map(x => x.id === g.id ? { ...x, unit: setGoalDone(x.unit, newDone), progress: Math.round(newDone / metric.total * 100) } : x));
+      } else {
+        setGoals(goals.map(x => x.id === g.id ? { ...x, progress: newPct } : x));
+      }
+    };
+    return (
+      <div key={g.id} className={`goal${overdue ? ' is-overdue' : ''}`} style={isDoneSection ? { opacity: 0.72 } : {}}>
+        {isEditing ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <input
+              autoFocus
+              value={draft.title}
+              onChange={e => setDraft(d => ({ ...d, title: e.target.value }))}
+              onKeyDown={e => { if (e.key === 'Enter') saveEdit(g.id); if (e.key === 'Escape') setEditing(null); }}
+              placeholder="Goal title…"
+              style={{ border: '1.5px solid var(--ssm-eminence)', borderRadius: 8, padding: '6px 10px', fontSize: 13, fontWeight: 600, outline: 'none', width: '100%', background: 'var(--ssm-paper)' }}
+            />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                value={draft.unit}
+                onChange={e => setDraft(d => ({ ...d, unit: e.target.value }))}
+                placeholder="Progress label (e.g. Ch. 6 of 9)"
+                style={{ flex: 1, border: '1px solid var(--border-default)', borderRadius: 8, padding: '5px 10px', fontSize: 12, outline: 'none', background: 'var(--ssm-paper)' }}
+              />
+              <input
+                value={draft.deadline}
+                onChange={e => setDraft(d => ({ ...d, deadline: e.target.value }))}
+                placeholder="Due date"
+                style={{ width: 110, border: '1px solid var(--border-default)', borderRadius: 8, padding: '5px 10px', fontSize: 12, outline: 'none', background: 'var(--ssm-paper)' }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => saveEdit(g.id)} className="btn btn--primary" style={{ fontSize: 11, padding: '5px 14px' }}>Save</button>
+              <button onClick={() => setEditing(null)} className="btn btn--ghost" style={{ fontSize: 11, padding: '5px 10px' }}>Cancel</button>
+              <button onClick={() => deleteGoal(g.id)} style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, color: 'var(--fg-error)', padding: '5px 10px', background: 'rgba(179,58,58,0.08)', borderRadius: 8 }}>Delete</button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="goal__head">
+              <div className="goal__title" style={{ cursor: 'pointer', ...(isDoneSection ? { textDecoration: 'line-through', color: 'var(--fg-muted)' } : {}) }} onClick={() => startEdit(g)} title="Click to edit">
+                {g.title}
+                {!isDoneSection && <Icon name="write" style={{ width: 11, height: 11, opacity: 0, marginLeft: 6, verticalAlign: 'middle' }} className="goal__edit-icon" />}
+              </div>
+              <div className="goal__pct" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {metric && !isDoneSection && (
+                  <div className="goal__stepper">
+                    <button type="button" onClick={(e) => { e.stopPropagation(); bumpDone(-1); }} disabled={metric.done <= 0} aria-label="Decrease">−</button>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); bumpDone(1); }} disabled={metric.done >= metric.total} aria-label="Increase">+</button>
+                  </div>
+                )}
+                <span>{pct}%</span>
+              </div>
+            </div>
+            <div
+              className="goal__bar"
+              onClick={isDoneSection ? undefined : (e) => { const rect = e.currentTarget.getBoundingClientRect(); setFromBar(Math.round(((e.clientX - rect.left) / rect.width) * 100)); }}
+              style={{ cursor: isDoneSection ? 'default' : 'pointer' }}
+              title={isDoneSection ? undefined : (metric ? `Click to set — ${metric.done} of ${metric.total}` : 'Click to set progress')}
+            >
+              <div className="goal__fill" style={{ width: `${pct}%` }} />
+            </div>
+            <div className="goal__meta">
+              <span>{g.unit}</span>
+              {isDoneSection
+                ? <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ssm-eminence)' }}>✓ Done {fmtGoalDate(g.completedOn)}</span>
+                : overdue
+                  ? <span className="goal__due task__due--overdue">⚠ Overdue · Due {g.deadline}</span>
+                  : <span className="goal__due"><Icon name="cal" style={{ width: 11, height: 11 }} /> Due {g.deadline}</span>
+              }
+            </div>
+          </>
+        )}
+      </div>
+    );
   };
 
   return (
     <Card
       cls="m-goals"
       title="Goals"
-      count={`${goals.length} active`}
+      count={`${activeGoals.length} active${doneGoals.length ? ` · ${doneGoals.length} done` : ''}`}
       action={
         <button
           className="btn btn--ghost"
@@ -852,89 +968,18 @@ function GoalsModule() {
       }
     >
       <div className="goals">
-        {goals.map(g => {
-          const isEditing = editing === g.id;
-          const metric = parseGoalMetric(g.unit);
-          const pct = metric ? Math.round(metric.done / metric.total * 100) : (g.progress ?? 0);
-          const bumpDone = (delta) => {
-            if (!metric) return;
-            setGoals(goals.map(x => x.id === g.id ? { ...x, unit: setGoalDone(x.unit, metric.done + delta), progress: Math.round(Math.max(0, Math.min(metric.total, metric.done + delta)) / metric.total * 100) } : x));
-          };
-          const setFromBar = (newPct) => {
-            if (metric) {
-              const newDone = Math.round(newPct / 100 * metric.total);
-              setGoals(goals.map(x => x.id === g.id ? { ...x, unit: setGoalDone(x.unit, newDone), progress: Math.round(newDone / metric.total * 100) } : x));
-            } else {
-              setGoals(goals.map(x => x.id === g.id ? { ...x, progress: newPct } : x));
-            }
-          };
-          return (
-            <div key={g.id} className="goal">
-              {isEditing ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <input
-                    autoFocus
-                    value={draft.title}
-                    onChange={e => setDraft(d => ({ ...d, title: e.target.value }))}
-                    onKeyDown={e => { if (e.key === 'Enter') saveEdit(g.id); if (e.key === 'Escape') setEditing(null); }}
-                    placeholder="Goal title…"
-                    style={{ border: '1.5px solid var(--ssm-eminence)', borderRadius: 8, padding: '6px 10px', fontSize: 13, fontWeight: 600, outline: 'none', width: '100%', background: 'var(--ssm-paper)' }}
-                  />
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <input
-                      value={draft.unit}
-                      onChange={e => setDraft(d => ({ ...d, unit: e.target.value }))}
-                      placeholder="Progress label (e.g. Ch. 6 of 9)"
-                      style={{ flex: 1, border: '1px solid var(--border-default)', borderRadius: 8, padding: '5px 10px', fontSize: 12, outline: 'none', background: 'var(--ssm-paper)' }}
-                    />
-                    <input
-                      value={draft.deadline}
-                      onChange={e => setDraft(d => ({ ...d, deadline: e.target.value }))}
-                      placeholder="Due date"
-                      style={{ width: 110, border: '1px solid var(--border-default)', borderRadius: 8, padding: '5px 10px', fontSize: 12, outline: 'none', background: 'var(--ssm-paper)' }}
-                    />
-                  </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button onClick={() => saveEdit(g.id)} className="btn btn--primary" style={{ fontSize: 11, padding: '5px 14px' }}>Save</button>
-                    <button onClick={() => setEditing(null)} className="btn btn--ghost" style={{ fontSize: 11, padding: '5px 10px' }}>Cancel</button>
-                    <button onClick={() => deleteGoal(g.id)} style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, color: 'var(--fg-error)', padding: '5px 10px', background: 'rgba(179,58,58,0.08)', borderRadius: 8 }}>Delete</button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="goal__head">
-                    <div className="goal__title" style={{ cursor: 'pointer' }} onClick={() => startEdit(g)} title="Click to edit">
-                      {g.title}
-                      <Icon name="write" style={{ width: 11, height: 11, opacity: 0, marginLeft: 6, verticalAlign: 'middle' }} className="goal__edit-icon" />
-                    </div>
-                    <div className="goal__pct" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      {metric && (
-                        <div className="goal__stepper">
-                          <button type="button" onClick={(e) => { e.stopPropagation(); bumpDone(-1); }} disabled={metric.done <= 0} aria-label="Decrease">−</button>
-                          <button type="button" onClick={(e) => { e.stopPropagation(); bumpDone(1); }} disabled={metric.done >= metric.total} aria-label="Increase">+</button>
-                        </div>
-                      )}
-                      <span>{pct}%</span>
-                    </div>
-                  </div>
-                  <div
-                    className="goal__bar"
-                    onClick={(e) => { const rect = e.currentTarget.getBoundingClientRect(); setFromBar(Math.round(((e.clientX - rect.left) / rect.width) * 100)); }}
-                    style={{ cursor: 'pointer' }}
-                    title={metric ? `Click to set — ${metric.done} of ${metric.total}` : 'Click to set progress'}
-                  >
-                    <div className="goal__fill" style={{ width: `${pct}%` }} />
-                  </div>
-                  <div className="goal__meta">
-                    <span>{g.unit}</span>
-                    <span className="goal__due"><Icon name="cal" style={{ width: 11, height: 11 }} /> Due {g.deadline}</span>
-                  </div>
-                </>
-              )}
-            </div>
-          );
-        })}
+        {activeGoals.map(g => renderGoalRow(g, false))}
       </div>
+
+      {doneGoals.length > 0 && (
+        <div style={{ marginTop: 10, borderTop: '1px solid var(--border-subtle)', paddingTop: 10 }}>
+          <p style={{ margin: '0 0 8px', fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fg-muted)' }}>Completed</p>
+          <div className="goals">
+            {doneGoals.map(g => renderGoalRow(g, true))}
+          </div>
+        </div>
+      )}
+
 
       {adding && (
         <form onSubmit={addGoal} style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 14px', background: 'var(--ssm-eminence-tint)', borderRadius: 12, marginTop: 4 }}>
