@@ -653,10 +653,18 @@ function QuarterlyGoalsModule() {
     }));
   };
   const toggleDone = (id) => {
-    setGoals(goals.map((g) => {
-      if (g.id !== id) return g;
-      const newDone = !g.done;
-      return { ...g, done: newDone, progress: newDone ? 100 : g.progress, completedOn: newDone ? (g.completedOn || todayISO()) : null };
+    const g = goals.find(x => x.id === id);
+    if (!g) return;
+    const newDone = !g.done;
+    // Overdue goal being checked off → archive it immediately under its original quarter
+    if (newDone && g.overdue && g.overdueQ) {
+      setArchivedGoals(prev => [{ ...g, done: true, progress: 100, completedOn: todayISO(), archivedQ: g.overdueQ }, ...prev]);
+      setGoals(goals.filter(x => x.id !== id));
+      return;
+    }
+    setGoals(goals.map(x => {
+      if (x.id !== id) return x;
+      return { ...x, done: newDone, progress: newDone ? 100 : x.progress, completedOn: newDone ? (x.completedOn || todayISO()) : null };
     }));
   };
 
