@@ -33,6 +33,10 @@
 
 <!-- Your configuration (Client ID goes here) -->
 <script src="config.js"></script>
+<!-- Supabase SDK — must load before supabase-sync.js -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<!-- Cloud sync engine — must load before React app -->
+<script src="supabase-sync.js"></script>
 </head>
 <body>
 <div id="root"></div>

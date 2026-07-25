@@ -12,6 +12,7 @@ const SHELL = [
   '/modules.jsx',
   '/views.jsx',
   '/app.jsx',
+  '/supabase-sync.js',
 ];
 
 self.addEventListener('install', e => {

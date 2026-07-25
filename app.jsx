@@ -75,7 +75,72 @@ async function gistPull(token, gistId) {
 }
 
 // ============================================================
-// GistSyncSection — rendered inside TweaksPanel
+// SupabaseSyncSection — primary sync UI (rendered inside TweaksPanel)
+// ============================================================
+function SupabaseSyncSection() {
+  const sync = window.DaybookSync || {};
+  const [user, setUser] = useState(sync.user || null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg]   = useState('');
+  const [err, setErr]   = useState(false);
+
+  useEffect(() => {
+    if (!sync.sb) return;
+    sync.sb.auth.getSession().then(({ data: { session } }) => setUser(session?.user || null));
+    const { data: { subscription } } = sync.sb.auth.onAuthStateChange((_, session) => setUser(session?.user || null));
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const run = async (fn) => {
+    setBusy(true); setMsg(''); setErr(false);
+    try { await fn(); } catch (e) { setMsg(e.message); setErr(true); }
+    setBusy(false);
+  };
+
+  const btn = (label, onClick, primary) => (
+    <button disabled={busy} onClick={onClick} style={{
+      padding: '8px 12px', fontSize: 11.5, fontWeight: 600, letterSpacing: '0.04em',
+      borderRadius: 8, cursor: busy ? 'default' : 'pointer', width: '100%', opacity: busy ? 0.6 : 1,
+      background: primary ? 'var(--ssm-eminence-tint)' : 'var(--bg-raised)',
+      color: primary ? 'var(--ssm-eminence)' : 'var(--fg-secondary)',
+      border: primary ? '1px solid rgba(111,63,142,0.2)' : '1px solid var(--border-default)',
+    }}>{busy ? 'Working…' : label}</button>
+  );
+
+  if (!sync.configured) return (
+    <p style={{ fontSize: 11.5, color: 'var(--fg-muted)', margin: 0, lineHeight: 1.6 }}>
+      Add <code style={{ fontSize: 10.5, background: 'var(--ssm-eminence-tint)', padding: '1px 5px', borderRadius: 4 }}>supabaseUrl</code> and <code style={{ fontSize: 10.5, background: 'var(--ssm-eminence-tint)', padding: '1px 5px', borderRadius: 4 }}>supabaseAnonKey</code> to config.js to enable automatic cloud sync.
+    </p>
+  );
+
+  if (!user) return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <p style={{ fontSize: 11.5, color: 'var(--fg-muted)', margin: 0, lineHeight: 1.55 }}>
+        Sign in to sync your data automatically across all devices.
+      </p>
+      {btn('Sign in with Google', () => run(() => sync.signInWithGoogle()), true)}
+      {msg && <p style={{ fontSize: 11, margin: 0, color: 'var(--fg-error)' }}>{msg}</p>}
+    </div>
+  );
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <p style={{ fontSize: 11.5, color: 'var(--fg-muted)', margin: 0 }}>
+        Signed in as <strong style={{ color: 'var(--fg-primary)' }}>{user.email}</strong>
+      </p>
+      <p style={{ fontSize: 11, color: 'var(--fg-muted)', margin: '0 0 4px' }}>
+        Auto-sync on · pushes 3 s after any change, pulls on each new session
+      </p>
+      {msg && <p style={{ fontSize: 11.5, margin: 0, color: err ? 'var(--fg-error)' : 'var(--fg-success)' }}>{msg}</p>}
+      {btn('Push now', () => run(async () => { const ts = await sync.forcePush(); setMsg(`Pushed at ${new Date(ts).toLocaleTimeString()}`); }), true)}
+      {btn('Pull now', () => run(() => sync.forcePull()), false)}
+      <button onClick={() => run(() => sync.signOut())} style={{ fontSize: 11, color: 'var(--fg-muted)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}>Sign out</button>
+    </div>
+  );
+}
+
+// ============================================================
+// GistSyncSection — legacy manual sync (rendered inside TweaksPanel)
 // ============================================================
 function GistSyncSection() {
   const [tokenInput, setTokenInput] = useState('');
@@ -229,7 +294,7 @@ function Rail({ activeView, onViewChange, showQuote, counts, onOpenSettings }) {
           </div>
         )}
         <div>
-          <strong>v1.1</strong> · Synced locally<br />
+          <strong>v1.2</strong> · {window.DaybookSync?.configured ? 'Cloud sync on' : 'Synced locally'}<br />
           {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         </div>
       </div>
@@ -363,7 +428,9 @@ function Dashboard() {
   }, []);
 
   // Gist: auto-pull once per session if remote is newer, auto-push on page hide
+  // Skipped when Supabase sync is configured (supabase-sync.js handles it instead).
   useEffect(() => {
+    if (window.DaybookSync?.configured) return;
     const token = getGithubToken();
     if (!token) return;
 
@@ -478,7 +545,7 @@ function Dashboard() {
           <span>Daybook · personal dashboard</span>
           <span>
             Built on the SSM design system <span className="dot"></span>
-            All data stored locally in your browser <span className="dot"></span>
+            {window.DaybookSync?.configured ? 'Auto-synced to cloud via Supabase' : 'All data stored locally in your browser'} <span className="dot"></span>
             <a href="https://github.com/startsayingmore/daybook" target="_blank" rel="noopener" style={{ color: 'var(--fg-muted)' }}>View on GitHub</a>
           </span>
         </footer>
@@ -606,7 +673,10 @@ function Dashboard() {
           </button>
         </TweakSection>
 
-        <TweakSection label="Sync">
+        <TweakSection label="Cloud Sync">
+          <SupabaseSyncSection />
+        </TweakSection>
+        <TweakSection label="Manual Sync (Gist)">
           <GistSyncSection />
         </TweakSection>
       </TweaksPanel>

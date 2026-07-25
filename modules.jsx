@@ -16,7 +16,12 @@ const useLocalState = (key, initial) => {
       return raw == null ? initial : JSON.parse(raw);
     } catch { return initial; }
   });
-  useEffect(() => { try { localStorage.setItem(key, JSON.stringify(v)); } catch {} }, [key, v]);
+  useEffect(() => {
+    try {
+      localStorage.setItem(key, JSON.stringify(v));
+      if (key.startsWith('dash.')) window.dispatchEvent(new CustomEvent('daybook:datachange', { detail: key }));
+    } catch {}
+  }, [key, v]);
   return [v, setV];
 };
 
