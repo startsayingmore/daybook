@@ -1,17 +1,17 @@
-const CACHE = 'daybook-v2';
+const CACHE = 'daybook-v3';
 const SHELL = [
-  '/daybook/',
-  '/daybook/index.html',
-  '/daybook/config.js',
-  '/daybook/manifest.json',
-  '/daybook/icon.svg',
-  '/daybook/colors_and_type.css',
-  '/daybook/styles.css',
-  '/daybook/tweaks-panel.jsx',
-  '/daybook/calendar.jsx',
-  '/daybook/modules.jsx',
-  '/daybook/views.jsx',
-  '/daybook/app.jsx',
+  '/',
+  '/index.html',
+  '/config.js',
+  '/manifest.json',
+  '/icon.svg',
+  '/colors_and_type.css',
+  '/styles.css',
+  '/tweaks-panel.jsx',
+  '/calendar.jsx',
+  '/modules.jsx',
+  '/views.jsx',
+  '/app.jsx',
 ];
 
 self.addEventListener('install', e => {
