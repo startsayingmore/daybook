@@ -32,6 +32,5 @@ window.DAYBOOK_CONFIG = {
   financeSheetId: '1tcbIxX3e6O0YHfIicRRV-mvaYxlUqr82llbTMHZ2fNo',
   socialSheetId:  '1hmIwg8TmEK94pzC3QSlfstcEjNmjJpn-4p_Go-4vbyg',
   // Supabase — get these from your project's Settings > API page
-  supabaseUrl:      '',   // e.g. 'https://xyzxyz.supabase.co'
-  supabaseAnonKey:  '',   // the anon/public key (safe to commit)
-};
+  supabaseUrl:      'https://mvebugckkpxyomouucae.supabase.co',
+  supabaseAnonKey:  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12ZWJ1Z2Nra3B4eW9tb3V1Y2FlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUxMDY1MDAsImV4cCI6MjEwMDY4MjUwMH0.dOO3grbjT8YQPnOIEpo01JvQ9wOxImH1zSzdcMwAivs',
