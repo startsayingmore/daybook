@@ -47,8 +47,11 @@
 <script type="text/babel" src="views.jsx"></script>
 <script type="text/babel" src="app.jsx"></script>
 <script>
+// Unregister any existing service workers so stale caches can't block updates
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    regs.forEach(r => r.unregister());
+  });
 }
 </script>
 </body>
