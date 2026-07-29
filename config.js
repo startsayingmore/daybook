@@ -34,3 +34,4 @@ window.DAYBOOK_CONFIG = {
   // Supabase — get these from your project's Settings > API page
   supabaseUrl:      'https://mvebugckkpxyomouucae.supabase.co',
   supabaseAnonKey:  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12ZWJ1Z2Nra3B4eW9tb3V1Y2FlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUxMDY1MDAsImV4cCI6MjEwMDY4MjUwMH0.dOO3grbjT8YQPnOIEpo01JvQ9wOxImH1zSzdcMwAivs',
+};
