@@ -1,8 +1,7 @@
-const CACHE = 'daybook-v4';
+const CACHE = 'daybook-v5';
 const SHELL = [
   '/',
   '/index.html',
-  '/config.js',
   '/manifest.json',
   '/icon.svg',
   '/colors_and_type.css',
@@ -12,8 +11,9 @@ const SHELL = [
   '/modules.jsx',
   '/views.jsx',
   '/app.jsx',
-  '/supabase-sync.js',
 ];
+// Never cache these — always fetch fresh so config changes take effect immediately
+const NO_CACHE = new Set(['/config.js', '/supabase-sync.js']);
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -31,8 +31,12 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
-  // Only cache same-origin requests (skip CDN libs, Google APIs, etc.)
   if (url.origin !== self.location.origin) return;
+  // Config files always bypass cache — fetch direct from network
+  if (NO_CACHE.has(url.pathname)) {
+    e.respondWith(fetch(e.request));
+    return;
+  }
   e.respondWith(
     fetch(e.request)
       .then(res => {
