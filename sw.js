@@ -1,4 +1,4 @@
-const CACHE = 'daybook-v3';
+const CACHE = 'daybook-v4';
 const SHELL = [
   '/',
   '/index.html',
