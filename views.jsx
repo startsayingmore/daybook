@@ -750,7 +750,7 @@ function QuarterlyGoalsModule() {
                         {g.done && g.completedOn && (
                           <span style={{ fontWeight: 600, color: 'var(--ssm-eminence)' }}>✓ Done {fmtShortDate(g.completedOn)}</span>
                         )}
-                        {g.overdue && !g.done && (
+                        {g.overdue && !g.done && g.overdueQ !== thisQ && (
                           <span style={{ fontWeight: 700, color: 'var(--fg-error)', background: 'rgba(192,57,43,0.1)', borderRadius: 6, padding: '1px 6px' }}>
                             Overdue · {g.overdueQ}
                           </span>
