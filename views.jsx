@@ -615,6 +615,14 @@ function QuarterlyGoalsModule() {
       });
       if (toArchive.length > 0) setArchivedGoals(prev => [...toArchive, ...prev]);
       setGoals(toKeep);
+    } else {
+      // Clear stale overdue flags where overdueQ matches current quarter (e.g. from data import)
+      const hasStale = goals.some(g => g.overdue && g.overdueQ === thisQ);
+      if (hasStale) {
+        setGoals(goals.map(g =>
+          (g.overdue && g.overdueQ === thisQ) ? { ...g, overdue: false, overdueQ: null } : g
+        ));
+      }
     }
     localStorage.setItem(QGOALS_CURRENT_Q, thisQ);
   }, [thisQ]); // eslint-disable-line react-hooks/exhaustive-deps
