@@ -66,15 +66,17 @@
 
   // ── Initialization ─────────────────────────────────────────────────────────
   let currentUser = null;
+  let listenersAttached = false;
 
-  sb.auth.getSession().then(({ data: { session } }) => {
-    currentUser = session?.user || null;
-    if (!currentUser) return;
+  function initWithUser(user) {
+    currentUser = user;
+    if (listenersAttached) return;
+    listenersAttached = true;
 
     // Auto-pull once per browser session
     if (!sessionStorage.getItem(SB_SESSION_KEY)) {
       sessionStorage.setItem(SB_SESSION_KEY, '1');
-      pull(currentUser.id).then(remote => {
+      pull(user.id).then(remote => {
         if (!remote) return;
         const localTs  = parseInt(localStorage.getItem(SB_SYNCED_KEY) || '0', 10);
         const remoteTs = remote._syncedAt || 0;
@@ -93,10 +95,16 @@
     const onHide = () => { if (currentUser) push(currentUser.id).catch(() => {}); };
     document.addEventListener('visibilitychange', () => { if (document.hidden) onHide(); });
     window.addEventListener('pagehide', onHide);
+  }
+
+  // Handle both pre-existing sessions and OAuth redirects
+  sb.auth.getSession().then(({ data: { session } }) => {
+    if (session?.user) initWithUser(session.user);
   });
 
   sb.auth.onAuthStateChange((_event, session) => {
     currentUser = session?.user || null;
+    if (session?.user) initWithUser(session.user);
   });
 
   // ── Public API for React components ───────────────────────────────────────
