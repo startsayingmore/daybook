@@ -104,7 +104,14 @@
 
   sb.auth.onAuthStateChange((_event, session) => {
     currentUser = session?.user || null;
-    if (session?.user) initWithUser(session.user);
+    if (session?.user) {
+      // After a fresh OAuth sign-in, mark pull as done so the auto-reload
+      // doesn't fire before Supabase finishes storing the session in localStorage
+      if (_event === 'SIGNED_IN' && !sessionStorage.getItem(SB_SESSION_KEY)) {
+        sessionStorage.setItem(SB_SESSION_KEY, '1');
+      }
+      initWithUser(session.user);
+    }
   });
 
   // ── Public API for React components ───────────────────────────────────────
