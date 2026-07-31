@@ -632,10 +632,10 @@ function QuarterlyGoalsModule() {
 
   const add = () => {
     const v = draft.trim(); if (!v) return;
-    setGoals([...goals, { id: 'qg' + Date.now(), tab, text: v, done: false, progress: 0, metric: '', completedOn: null }]);
+    setGoals([...goals, { id: 'qg' + Date.now(), tab, text: v, done: false, progress: 0, metric: '', completedOn: null, dueDate: '' }]);
     setDraft('');
   };
-  const startEdit = (g) => { setEditing(g.id); setEditDraft({ text: g.text, metric: g.metric || '' }); };
+  const startEdit = (g) => { setEditing(g.id); setEditDraft({ text: g.text, metric: g.metric || '', dueDate: g.dueDate || '' }); };
   const saveEdit = (id) => {
     if (!editDraft.text.trim()) return;
     setGoals(goals.map((g) => {
@@ -643,7 +643,7 @@ function QuarterlyGoalsModule() {
       const parsed = parseGoalMetric(editDraft.metric);
       const progress = parsed ? Math.round(parsed.done / parsed.total * 100) : g.progress;
       const done = progress === 100;
-      return { ...g, text: editDraft.text.trim(), metric: editDraft.metric, progress, done, completedOn: done ? (g.completedOn || todayISO()) : null };
+      return { ...g, text: editDraft.text.trim(), metric: editDraft.metric, dueDate: editDraft.dueDate || '', progress, done, completedOn: done ? (g.completedOn || todayISO()) : null };
     }));
     setEditing(null);
   };
@@ -691,8 +691,11 @@ function QuarterlyGoalsModule() {
           const parsed = parseGoalMetric(g.metric);
           const pct = parsed ? Math.round(parsed.done / parsed.total * 100) : (g.progress ?? (g.done ? 100 : 0));
           const isEditing = editing === g.id;
+          const isPastDue = !g.done && g.dueDate && g.dueDate < todayISO();
+          const normalQ = typeof g.overdueQ === 'string' ? g.overdueQ.replace(/^"|"$/g, '') : g.overdueQ;
+          const isQuarterOverdue = g.overdue && !g.done && normalQ !== thisQ;
           return (
-            <div key={g.id} className={`task ${g.done ? 'is-done' : ''} ${g.overdue && !g.done ? 'is-overdue' : ''}`} style={{ display: 'block', padding: '8px 6px' }}>
+            <div key={g.id} className={`task ${g.done ? 'is-done' : ''} ${isPastDue || isQuarterOverdue ? 'is-overdue' : ''}`} style={{ display: 'block', padding: '8px 6px' }}>
               {isEditing ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                   <input
@@ -709,6 +712,12 @@ function QuarterlyGoalsModule() {
                     placeholder="Metric e.g. $2,000 of $6,000 or 21 of 60"
                     style={{ border: '1px solid var(--border-default)', borderRadius: 8, padding: '5px 10px', fontSize: 12, outline: 'none', background: 'var(--ssm-paper)', fontFamily: 'inherit', color: 'var(--fg-muted)' }}
                   />
+                  <input
+                    type="date"
+                    value={editDraft.dueDate || ''}
+                    onChange={(e) => setEditDraft((d) => ({ ...d, dueDate: e.target.value }))}
+                    style={{ border: '1px solid var(--border-default)', borderRadius: 8, padding: '5px 10px', fontSize: 12, outline: 'none', background: 'var(--ssm-paper)', fontFamily: 'inherit', color: 'var(--fg-muted)' }}
+                  />
                   <div style={{ display: 'flex', gap: 6 }}>
                     <button onClick={() => saveEdit(g.id)} className="btn btn--primary" style={{ fontSize: 11, padding: '4px 12px' }}>Save</button>
                     <button onClick={() => setEditing(null)} className="btn btn--ghost" style={{ fontSize: 11, padding: '4px 10px' }}>Cancel</button>
@@ -717,7 +726,7 @@ function QuarterlyGoalsModule() {
                 </div>
               ) : (
                 <>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: g.metric || g.overdue || g.done ? 6 : 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: g.metric || g.dueDate || isQuarterOverdue || g.done ? 6 : 0 }}>
                     <button className={`check check--${g.done ? 'done' : 'todo'}`} onClick={() => toggleDone(g.id)} style={{ flexShrink: 0 }}>
                       <Icon name="check" />
                     </button>
@@ -735,7 +744,7 @@ function QuarterlyGoalsModule() {
                       <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ssm-eminence)', minWidth: 32, textAlign: 'right' }}>{pct}%</span>
                     </div>
                   </div>
-                  {(g.metric || g.overdue || g.done) && (
+                  {(g.metric || g.dueDate || isQuarterOverdue || g.done) && (
                     <div style={{ marginLeft: 32 }}>
                       <div
                         className="goal__bar"
@@ -750,9 +759,17 @@ function QuarterlyGoalsModule() {
                         {g.done && g.completedOn && (
                           <span style={{ fontWeight: 600, color: 'var(--ssm-eminence)' }}>✓ Done {fmtShortDate(g.completedOn)}</span>
                         )}
-                        {g.overdue && !g.done && g.overdueQ !== thisQ && (
+                        {!g.done && g.dueDate && !isPastDue && (
+                          <span style={{ color: 'var(--fg-muted)' }}>Due {fmtShortDate(g.dueDate)}</span>
+                        )}
+                        {isPastDue && (
                           <span style={{ fontWeight: 700, color: 'var(--fg-error)', background: 'rgba(192,57,43,0.1)', borderRadius: 6, padding: '1px 6px' }}>
-                            Overdue · {g.overdueQ}
+                            Overdue · Due {fmtShortDate(g.dueDate)}
+                          </span>
+                        )}
+                        {isQuarterOverdue && !isPastDue && (
+                          <span style={{ fontWeight: 700, color: 'var(--fg-error)', background: 'rgba(192,57,43,0.1)', borderRadius: 6, padding: '1px 6px' }}>
+                            Overdue · {normalQ}
                           </span>
                         )}
                       </div>
