@@ -19,7 +19,9 @@
     return;
   }
 
-  const sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+  const sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
+    auth: { flowType: 'implicit', detectSessionInUrl: true },
+  });
 
   // ── Data helpers ───────────────────────────────────────────────────────────
   function gather() {
