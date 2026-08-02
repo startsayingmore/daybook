@@ -70,12 +70,17 @@
   let currentUser = null;
   let listenersAttached = false;
 
+  // If we're landing back from an OAuth redirect, the token is in the URL hash.
+  // Mark pull as done immediately so we never reload and wipe the new session.
+  const isOAuthRedirect = window.location.hash.includes('access_token=');
+  if (isOAuthRedirect) sessionStorage.setItem(SB_SESSION_KEY, '1');
+
   function initWithUser(user) {
     currentUser = user;
     if (listenersAttached) return;
     listenersAttached = true;
 
-    // Auto-pull once per browser session
+    // Auto-pull once per browser session (skipped on OAuth redirect landing)
     if (!sessionStorage.getItem(SB_SESSION_KEY)) {
       sessionStorage.setItem(SB_SESSION_KEY, '1');
       pull(user.id).then(remote => {
@@ -106,14 +111,7 @@
 
   sb.auth.onAuthStateChange((_event, session) => {
     currentUser = session?.user || null;
-    if (session?.user) {
-      // After a fresh OAuth sign-in, mark pull as done so the auto-reload
-      // doesn't fire before Supabase finishes storing the session in localStorage
-      if (_event === 'SIGNED_IN' && !sessionStorage.getItem(SB_SESSION_KEY)) {
-        sessionStorage.setItem(SB_SESSION_KEY, '1');
-      }
-      initWithUser(session.user);
-    }
+    if (session?.user) initWithUser(session.user);
   });
 
   // ── Public API for React components ───────────────────────────────────────
