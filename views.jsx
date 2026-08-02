@@ -692,7 +692,7 @@ function QuarterlyGoalsModule() {
           const pct = parsed ? Math.round(parsed.done / parsed.total * 100) : (g.progress ?? (g.done ? 100 : 0));
           const isEditing = editing === g.id;
           const isPastDue = !g.done && g.dueDate && g.dueDate < todayISO();
-          const normalQ = typeof g.overdueQ === 'string' ? g.overdueQ.replace(/^"|"$/g, '') : g.overdueQ;
+          const normalQ = typeof g.overdueQ === 'string' ? g.overdueQ.replace(/^"/, '').replace(/"$/, '') : g.overdueQ;
           const isQuarterOverdue = g.overdue && !g.done && normalQ !== thisQ;
           return (
             <div key={g.id} className={`task ${g.done ? 'is-done' : ''} ${isPastDue || isQuarterOverdue ? 'is-overdue' : ''}`} style={{ display: 'block', padding: '8px 6px' }}>
