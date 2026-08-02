@@ -1763,7 +1763,6 @@ function BudgetBarsModule() {
   }
 
   const cats = fd.budgetCategories.filter(c => c.budget > 0 || c.spent > 0);
-  const maxVal = Math.max(...cats.map(c => Math.max(c.spent, c.budget)), 1);
 
   const fmt = (n) => n >= 1000 ? `$${(n / 1000).toFixed(1)}k` : `$${n}`;
 
@@ -1772,8 +1771,11 @@ function BudgetBarsModule() {
       <div className="fin-bars">
         {cats.map((c, i) => {
           const over     = c.spent > c.budget && c.budget > 0;
-          const budgetW  = (c.budget / maxVal) * 100;
-          const spentW   = (c.spent  / maxVal) * 100;
+          // Each row scales to its own budget so bars are comparable within the row.
+          // Over-budget: budget bar = 80% of track, spent bar can reach 100%.
+          // Under/at budget: budget bar = 100% of track, spent bar is proportional.
+          const budgetW  = over ? (c.budget / c.spent) * 100 : 100;
+          const spentW   = over ? 100 : (c.budget > 0 ? (c.spent / c.budget) * 100 : 100);
           const hasPrior = c.priorMonth > 0;
           const delta    = hasPrior ? c.spent - c.priorMonth : 0;
           const deltaPct = hasPrior ? Math.round(Math.abs(delta) / c.priorMonth * 100) : 0;
